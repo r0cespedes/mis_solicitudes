@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<edmx:Edmx Version="1.0" xmlns:edmx="http://schemas.microsoft.com/ado/2007/06/edmx" xmlns:atom="http://www.w3.org/2005/Atom">
+    <edmx:DataServices m:DataServiceVersion="2.0" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata">
+        <Schema Namespace="SFODataSet" xmlns="http://schemas.microsoft.com/ado/2008/09/edm" xmlns:sf="http://www.successfactors.com/edm/sf" xmlns:sap="http://www.successfactors.com/edm/sap">
+            <EntityContainer Name="EntityContainer" m:IsDefaultEntityContainer="true">
+                <EntitySet Name="cust_INETUM_SOL_C_0000" EntityType="SFOData.cust_INETUM_SOL_C_0000" sap:label="cust_INETUM_SOL_C_0000" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:deletable="true">
+                    <Documentation>
+                        <Summary>
+                        </Summary>
+                        <LongDescription>
+                        </LongDescription>
+                        <sap:tagcollection>
+                            <sap:tag>Foundation/Platform (PLT)</sap:tag>
+                            <sap:tag>PLT - Generic Objects</sap:tag>
+                        </sap:tagcollection>
+                    </Documentation>
+                </EntitySet>
+            </EntityContainer>
+        </Schema>
+        <Schema Namespace="SFOData" xmlns="http://schemas.microsoft.com/ado/2008/09/edm" xmlns:sf="http://www.successfactors.com/edm/sf" xmlns:sap="http://www.successfactors.com/edm/sap">
+            <EntityType Name="cust_INETUM_SOL_C_0000">
+                <Key>
+                    <PropertyRef Name="effectiveStartDate">
+                    </PropertyRef>
+                    <PropertyRef Name="externalCode">
+                    </PropertyRef>
+                </Key>
+                <Property Name="createdBy" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="false" sap:updatable="false" sap:upsertable="false" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="100" sap:label="Created By">
+                </Property>
+                <Property Name="createdDateTime" Type="Edm.DateTimeOffset" Nullable="true" sap:required="false" sap:creatable="false" sap:updatable="false" sap:upsertable="false" sap:visible="true" sap:sortable="true" sap:filterable="true" sap:label="Created On">
+                </Property>
+                <Property Name="cust_aceptar_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Accept button">
+                </Property>
+                <Property Name="cust_aceptar_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Accept button">
+                </Property>
+                <Property Name="cust_aceptar_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Accept button">
+                </Property>
+                <Property Name="cust_aceptar_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Accept button">
+                </Property>
+                <Property Name="cust_aceptar_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Accept button">
+                </Property>
+                <Property Name="cust_aceptar_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Accept button">
+                </Property>
+                <Property Name="cust_aprobar_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Approve button">
+                </Property>
+                <Property Name="cust_aprobar_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Approve button">
+                </Property>
+                <Property Name="cust_aprobar_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Approve button">
+                </Property>
+                <Property Name="cust_aprobar_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Approve button">
+                </Property>
+                <Property Name="cust_aprobar_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Approve button">
+                </Property>
+                <Property Name="cust_aprobar_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Approve button">
+                </Property>
+                <Property Name="cust_cancelar_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Cancel button">
+                </Property>
+                <Property Name="cust_cancelar_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Cancel button">
+                </Property>
+                <Property Name="cust_cancelar_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Cancel button">
+                </Property>
+                <Property Name="cust_cancelar_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Cancel button">
+                </Property>
+                <Property Name="cust_cancelar_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Cancel button">
+                </Property>
+                <Property Name="cust_cancelar_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Cancel button">
+                </Property>
+                <Property Name="cust_cerrar_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Close button">
+                </Property>
+                <Property Name="cust_cerrar_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Close button">
+                </Property>
+                <Property Name="cust_cerrar_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Close button">
+                </Property>
+                <Property Name="cust_cerrar_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Close button">
+                </Property>
+                <Property Name="cust_cerrar_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Close button">
+                </Property>
+                <Property Name="cust_cerrar_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Close button">
+                </Property>
+                <Property Name="cust_devolver_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Return button">
+                </Property>
+                <Property Name="cust_devolver_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Return button">
+                </Property>
+                <Property Name="cust_devolver_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Return button">
+                </Property>
+                <Property Name="cust_devolver_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Return button">
+                </Property>
+                <Property Name="cust_devolver_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Return button">
+                </Property>
+                <Property Name="cust_devolver_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Return button">
+                </Property>
+                <Property Name="cust_enviar_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Sudmit button">
+                </Property>
+                <Property Name="cust_enviar_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Sudmit button">
+                </Property>
+                <Property Name="cust_enviar_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Sudmit button">
+                </Property>
+                <Property Name="cust_enviar_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Sudmit button">
+                </Property>
+                <Property Name="cust_enviar_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Sudmit button">
+                </Property>
+                <Property Name="cust_enviar_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Sudmit button">
+                </Property>
+                <Property Name="cust_files" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="255" sap:label="Extension files">
+                </Property>
+                <Property Name="cust_rechazar_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Reject button">
+                </Property>
+                <Property Name="cust_rechazar_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Reject button">
+                </Property>
+                <Property Name="cust_rechazar_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Reject button">
+                </Property>
+                <Property Name="cust_rechazar_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Reject button">
+                </Property>
+                <Property Name="cust_rechazar_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Reject button">
+                </Property>
+                <Property Name="cust_rechazar_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Reject button">
+                </Property>
+                <Property Name="cust_retroceder_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Go Back button">
+                </Property>
+                <Property Name="cust_retroceder_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Go Back button">
+                </Property>
+                <Property Name="cust_retroceder_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Go Back button">
+                </Property>
+                <Property Name="cust_retroceder_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Go Back button">
+                </Property>
+                <Property Name="cust_retroceder_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Go Back button">
+                </Property>
+                <Property Name="cust_retroceder_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Go Back button">
+                </Property>
+                <Property Name="cust_titulo1_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title Interfaz1 Create Requests">
+                </Property>
+                <Property Name="cust_titulo1_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title Interfaz1 Create Requests">
+                </Property>
+                <Property Name="cust_titulo1_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title Interfaz1 Create Requests">
+                </Property>
+                <Property Name="cust_titulo1_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title Interfaz1 Create Requests">
+                </Property>
+                <Property Name="cust_titulo1_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title Interfaz1 Create Requests">
+                </Property>
+                <Property Name="cust_titulo1_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Title Interfaz1 Create Requests">
+                </Property>
+                <Property Name="cust_titulo2_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 2 My requests">
+                </Property>
+                <Property Name="cust_titulo2_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 2 My requests">
+                </Property>
+                <Property Name="cust_titulo2_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 2 My requests">
+                </Property>
+                <Property Name="cust_titulo2_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 2 My requests">
+                </Property>
+                <Property Name="cust_titulo2_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 2 My requests">
+                </Property>
+                <Property Name="cust_titulo2_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Title 2 My requests">
+                </Property>
+                <Property Name="cust_titulo3_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 3 Pending approval">
+                </Property>
+                <Property Name="cust_titulo3_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 3 Pending approval">
+                </Property>
+                <Property Name="cust_titulo3_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 3 Pending approval">
+                </Property>
+                <Property Name="cust_titulo3_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 3 Pending approval">
+                </Property>
+                <Property Name="cust_titulo3_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="Title 3 Pending approval">
+                </Property>
+                <Property Name="cust_titulo3_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="Title 3 Pending approval">
+                </Property>
+                <Property Name="cust_vto_ca_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="No expiration date">
+                </Property>
+                <Property Name="cust_vto_defaultValue" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="No expiration date">
+                </Property>
+                <Property Name="cust_vto_en_DEBUG" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="No expiration date">
+                </Property>
+                <Property Name="cust_vto_en_US" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="No expiration date">
+                </Property>
+                <Property Name="cust_vto_es_ES" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="32" sap:label="No expiration date">
+                </Property>
+                <Property Name="cust_vto_localized" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="false" sap:filterable="false" MaxLength="32" sap:label="No expiration date">
+                </Property>
+                <Property Name="effectiveStartDate" Type="Edm.DateTime" Nullable="false" sap:required="true" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" sap:display-format="Date" sap:label="effectiveStartDate">
+                </Property>
+                <Property Name="externalCode" Type="Edm.String" Nullable="false" sap:required="true" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="128" sap:label="externalCode">
+                </Property>
+                <Property Name="externalName" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="true" sap:updatable="true" sap:upsertable="true" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="128" sap:label="externalName">
+                </Property>
+                <Property Name="lastModifiedBy" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="false" sap:updatable="false" sap:upsertable="false" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="100" sap:label="Last Modified By">
+                </Property>
+                <Property Name="lastModifiedDateTime" Type="Edm.DateTimeOffset" Nullable="true" sap:required="false" sap:creatable="false" sap:updatable="false" sap:upsertable="false" sap:visible="true" sap:sortable="true" sap:filterable="true" sap:label="Last Modified Date">
+                </Property>
+                <Property Name="mdfSystemEffectiveEndDate" Type="Edm.DateTime" Nullable="true" sap:required="false" sap:creatable="false" sap:updatable="false" sap:upsertable="false" sap:visible="true" sap:sortable="true" sap:filterable="true" sap:display-format="Date" sap:label="Effective End Date">
+                </Property>
+                <Property Name="mdfSystemRecordStatus" Type="Edm.String" Nullable="true" sap:required="false" sap:creatable="false" sap:updatable="false" sap:upsertable="false" sap:visible="true" sap:sortable="true" sap:filterable="true" MaxLength="255" sap:label="Record Status">
+                </Property>
+            </EntityType>
+        </Schema>
+    </edmx:DataServices>
+</edmx:Edmx>
