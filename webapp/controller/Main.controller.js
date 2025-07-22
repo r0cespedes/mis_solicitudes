@@ -6,22 +6,27 @@ sap.ui.define([
     "sap/m/MessageBox",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "com/inetum/missolicitudes/dinamic/DinamicFields",
-    "com/inetum/missolicitudes/service/Service"
-], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, Filter, FilterOperator, DinamicFields, Service) {
+    "../dinamic/DinamicFields",
+    "../service/Service",
+    "../model/formatter",
+    "../Utils/Util",
+
+], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, Filter, FilterOperator, DinamicFields, Service, formatter, Util) {
     "use strict";
 
     return Controller.extend("com.inetum.missolicitudes.controller.Main", {
+        formatter: formatter,
 
         onInit: function () {
             // Crear datos mock directamente aquí para evitar problemas de dependencias
-            var oMockData = this._createMockData();
-            console.log("Datos mock creados:", oMockData); // Debug
+            // var oMockData = this._createMockData();
+            // console.log("Datos mock creados:", oMockData); // Debug
             
-            var oSolicitudesModel = new JSONModel(oMockData);
-            this.getView().setModel(oSolicitudesModel, "solicitudes");
+            // var oSolicitudesModel = new JSONModel(oMockData);
+            // this.getView().setModel(oSolicitudesModel, "solicitudes");
           
             // Modelo para configuración
+            
             var oConfigModel = new JSONModel({
                 titulo2: "Mis Solicitudes",
                 cancelar: "Cancelar", 
@@ -37,13 +42,22 @@ sap.ui.define([
             // Variable para el fragment
             this._pDetailFragment = null;
 
-            // IMPORTANTE: Pasar la referencia del controlador
+            var sLanguage = sap.ui.getCore().getConfiguration().getLanguage();
+            console.log("Idioma UI5:", sLanguage);
+
+            var currentUser = sap.ushell.Container.getService("UserInfo");
+            console.log("Usuario Actual: ", currentUser);
+
+            // this.oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
+            // Util.onShowMessage(oResourceBundle.getText("messageNotRedirectToClaimCreation"), "error");
+
+            //Pasar la referencia del controlador
             this._oDinamicFields = new DinamicFields(this);
         },
 
         onAfterRendering: async function() {
 
-            // const oModel = this.getOwnerComponent().getModel("cust_INETUM_SOL_C_0001");
+ 
             // var oModel = this.getOwnerComponent().getModel();
  
             // oModel.read("/cust_INETUM_SOL_C_0001", {
@@ -54,24 +68,23 @@ sap.ui.define([
                     
             //     },
             //     success: function(oData) {
-            //         console.log("✅ FUNCIONA sin expand:", oData);
+            //         console.log("Expand:", oData);
             //     },
             //     error: function(oError) {
-            //         console.error("❌ Error:", oError);
+            //         console.error("Error:", oError);
             //     }
             // });
 
-            this.onTestRead();
+             this.onGetDM001();
 
 
         },
 
-        onTestRead: async function() {
-            try {
-                        
-                const oModel = this.getOwnerComponent().getModel();
-                
-                // Crear filtros para la prueba
+        onGetDM001: async function() {
+            Util.showBI(true);
+            try {                        
+                const oModel = this.getOwnerComponent().getModel();                
+             
                 const aFilters = [
                     new Filter("externalCode", FilterOperator.EQ, 19481)
                 ];
@@ -80,56 +93,113 @@ sap.ui.define([
                 const oParam = {
                     bParam: true,
                     oParameter: {
-                        "$expand": "cust_idTipoNav",
+                        // "$expand": "cust_solicitanteNav,",                      
                         "$format": "json",
-                        "$top": "10",
-                        "$select": "externalCode,cust_nombreSol_localized,cust_status,cust_idTipo,effectiveStartDate,lastModifiedDateTime"
+                        "$top": "50"
+                        // "$select": "externalCode,cust_nombreSol_localized,cust_status,cust_idTipo,effectiveStartDate,lastModifiedDateTime" cust_fieldTypeNav
                     }
                 };
                 
-                // Llamar al service
-                const { data, response } = await Service.readDataERP("/cust_INETUM_SOL_C_0001", oModel, aFilters, oParam );
-                MessageToast.show(`READ exitoso: ${data.results ? data.results.length : 0} registros`);
+                // LLamar al servicio
+                const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, [], oParam );   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
+
+                data.results.forEach(item => {
+                    item.cust_status = 'EN_CURSO'
+                });
+
+                const oSolicitudesData = {
+                    solicitudes: {
+                        results: data.results,
+                        totalCount: data.results.length
+                    }
+                };
+                var oSolicitudesModel = new JSONModel(oSolicitudesData);
+                this.getView().setModel(oSolicitudesModel, "solicitudes");
+                // this._configureTableRowVisibility(data.results.length);
+                Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');  
+                this.onGetSOL0004();
+                Util.showBI(false);           
                 
-                return data;
-                
-            } catch (error) {
-                console.error("❌ PRUEBA READ FALLÓ:", error);
-                MessageToast.show("Error en prueba READ: " + (error.message || error));
+            } catch (error) {                
+                Util.onShowMessage("Error " + (error.message || error), 'toast');
+                Util.showBI(false);
             }
         },
 
-        
-        readDataERP: function(_sEntity, _oService, _aFilter, oParam = { bParam: false, oParameter: undefined }) {
-            return new Promise((resolve, reject) => {
-                // Validaciones de entrada
-                if (!_sEntity || !_oService) {
-                    reject(new Error("Entidad y servicio son requeridos"));
-                    return;
-                }
-        
-                // CORRECCIÓN: Asegurar que la entidad no tenga "/" al inicio para SuccessFactors
-                let sCleanEntity = _sEntity.startsWith('/') ? _sEntity.substring(1) : _sEntity;
+        onGetSOL0004: async function() {
+            Util.showBI(true);
+            try {                        
+                const oModel = this.getOwnerComponent().getModel();                
+             
+                const aFilters = [
+                    new Filter("externalCode", FilterOperator.EQ, 19481)
+                ];
                 
-                // Configuración de parámetros
-                const oReadParams = {
-                    filters: _aFilter || [],
-                    urlParameters: oParam.bParam ? oParam.oParameter : {},
-                    success: (data, response) => {
-                        console.log("Consulta exitosa a entidad:", sCleanEntity);
-                        console.log("Datos recibidos:", data);
-                        resolve({ data, response });
-                    },
-                    error: (error) => {
-                        console.error("Error en consulta OData para entidad:", sCleanEntity);
-                        console.error("Error detallado:", error);
-                        reject(error);
+                // Parámetros para la consulta
+                const oParam = {
+                    bParam: true,
+                    oParameter: {
+                        "$expand": "cust_fieldTypeNav",                      
+                        "$format": "json",
+                        "$top": "50"
+                        
                     }
                 };
-        
-                // Ejecutar la consulta con la entidad limpia
-                _oService.read("/" + sCleanEntity, oReadParams);
-            });
+                
+                // LLamar al servicio
+                const { data } = await Service.readDataERP("/cust_INETUM_SOL_C_0004", oModel, [], oParam );   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
+      
+                var oTypeNav = new JSONModel(data);
+                this.getView().setModel(oTypeNav, "typeNav");
+                // this._configureTableRowVisibility(data.results.length);
+                Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');               
+                Util.showBI(false);           
+                
+            } catch (error) {                
+                Util.onShowMessage("Error " + (error.message || error), 'toast');
+                Util.showBI(false);
+            }
+        },
+
+        onCreateData: async function(){
+            const oModel = this.getOwnerComponent().getModel(); 
+            try {
+                let oSend = {
+                    createdBy : "",
+                    createdDateTime : "",
+                    cust_INETUM_SOL_DM_0001_effectiveStartDate: "",
+                    cust_INETUM_SOL_DM_0001_externalCode: "",
+                    cust_field: "",
+                    cust_fieldLenght : "",
+                    cust_field: "",
+                    cust_object : "",
+                    cust_tipoObject: "",
+                    cust_value: "",
+                    externalCode: "",
+                    externalName: "",
+                    lastModifiedBy: "",
+                    lastModifiedDateTime: "",
+                    mdfSystemRecordStatus: "",
+    
+                }
+    
+                const { data: oResult } =  await Service.createDataERP("/cust_INETUM_SOL_DM_0003", oModel, oSend );  
+    
+                if (oResult.OMsjCgSet['results'][0]['Type'] === 'E') {
+                    Util.onShowMessage(oResult.OMsjCgSet['results'][0]['Message'], "error");
+                    return;
+                } else {
+                    Util.onShowMessage(oResult.OMsjCgSet['results'][0]['Message'], "done");
+                }
+                
+            } catch (oError) {
+                Util.onShowMessage(oError.message, "error");
+                    Util.showBI(false);
+                
+            }finally {
+                Util.showBI(false);
+            }           
+
         },
 
 
@@ -202,39 +272,7 @@ sap.ui.define([
             };
         },
 
-        /**
-         * Formatters para la tabla
-         */
-        formatStatusState: function(sStatus) {
-            switch (sStatus) {
-                case "EN_CURSO":
-                    return "Warning";
-                case "COMPLETADO":
-                    return "Success";
-                case "CANCELADO":
-                    return "None";
-                case "RECHAZADO":
-                    return "Error";
-                default:
-                    return "None";
-            }
-        },
-
-        formatStatusIcon: function(sStatus) {
-            switch (sStatus) {
-                case "EN_CURSO":
-                    return "sap-icon://pending";
-                case "COMPLETADO":
-                    return "sap-icon://complete";
-                case "CANCELADO":
-                    return "sap-icon://cancel";
-                case "RECHAZADO":
-                    return "sap-icon://decline";
-                default:
-                    return "sap-icon://status-inactive";
-            }
-        },
-
+ 
         isStatusEnCurso: function(sStatus) {
             return sStatus === "EN_CURSO";
         },
@@ -290,7 +328,7 @@ sap.ui.define([
         onRefresh: function() {
             var oModel = this.getView().getModel("solicitudes");
             oModel.refresh();
-            MessageToast.show("Solicitudes actualizadas");
+            Util.onShowMessage("Solicitudes actualizadas", 'toast');
         },
 
         onVisualizarPress: function(oEvent){
@@ -366,7 +404,7 @@ sap.ui.define([
             
             if (iIndex >= 0) {
                 oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "CANCELADO");
-                MessageToast.show("Solicitud " + sSolicitudId + " cancelada correctamente");
+                Util.onShowMessage("Solicitud " + sSolicitudId + " cancelada correctamente", 'toast');
                 
                 // Forzar actualización
                 oModel.refresh();
@@ -402,7 +440,7 @@ sap.ui.define([
         },
 
         onNuevaSolicitud: function() {
-            MessageToast.show("Navegando a Crear Solicitud...");
+            Util.onShowMessage("Navegando a Crear Solicitud...", 'toast');
         },
 
         onRowPress: function(oEvent) {
