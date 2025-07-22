@@ -1,9 +1,6 @@
 sap.ui.define([
-    "sap/ui/model/Filter",
-    "sap/ui/model/FilterOperator"
-], function (Filter, FilterOperator) {
-    "use strict";
-    
+], function () {
+    "use strict";    
     return {
         
         /**
@@ -14,16 +11,13 @@ sap.ui.define([
          * @returns {Promise} Promise con la respuesta
          */
         createDataERP: function (sEntity, oService, oDataToSend) {
-            return new Promise((resolve, reject) => {
-                console.log("🔄 CREATE - Entidad:", sEntity, "Datos:", oDataToSend);
+            return new Promise((resolve, reject) => {      
                 
                 oService.create(sEntity, oDataToSend, {
-                    success: (data, response) => {
-                        console.log("✅ CREATE exitoso:", data);
+                    success: (data, response) => {                     
                         resolve({ data, response });
                     },
-                    error: (error) => {
-                        console.error("❌ CREATE error:", error);
+                    error: (error) => {                    
                         reject(error);
                     }
                 });
@@ -40,17 +34,13 @@ sap.ui.define([
          */
         readDataERP: function (sEntity, oService, aFilter = [], oParam = { bParam: false, oParameter: undefined }) {
             return new Promise((resolve, reject) => {
-                console.log("🔄 READ - Entidad:", sEntity, "Filtros:", aFilter, "Parámetros:", oParam);
-                
                 oService.read(sEntity, {
                     filters: aFilter,
                     urlParameters: oParam.bParam ? oParam.oParameter : {},
-                    success: (data, response) => {
-                        console.log("✅ READ exitoso:", data);
+                    success: (data, response) => {                 
                         resolve({ data, response });
                     },
-                    error: (error) => {
-                        console.error("❌ READ error:", error);
+                    error: (error) => {                    
                         reject(error);
                     }
                 });
@@ -65,16 +55,12 @@ sap.ui.define([
          * @returns {Promise} Promise con la respuesta
          */
         updateDataERP: function (sEntity, oService, oDataToUpdate) {
-            return new Promise((resolve, reject) => {
-                console.log("🔄 UPDATE - Entidad:", sEntity, "Datos:", oDataToUpdate);
-                
+            return new Promise((resolve, reject) => {     
                 oService.update(sEntity, oDataToUpdate, {
-                    success: (data, response) => {
-                        console.log("✅ UPDATE exitoso:", data);
+                    success: (data, response) => {                       
                         resolve({ data, response });
                     },
-                    error: (error) => {
-                        console.error("❌ UPDATE error:", error);
+                    error: (error) => {                      
                         reject(error);
                     }
                 });
@@ -88,16 +74,12 @@ sap.ui.define([
          * @returns {Promise} Promise con la respuesta
          */
         deleteDataERP: function (sEntity, oService) {
-            return new Promise((resolve, reject) => {
-                console.log("🔄 DELETE - Entidad:", sEntity);
-                
+            return new Promise((resolve, reject) => {                           
                 oService.remove(sEntity, {
-                    success: (data, response) => {
-                        console.log("✅ DELETE exitoso:", data);
+                    success: (data, response) => {                      
                         resolve({ data, response });
                     },
-                    error: (error) => {
-                        console.error("❌ DELETE error:", error);
+                    error: (error) => {                      
                         reject(error);
                     }
                 });
