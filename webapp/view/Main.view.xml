@@ -28,7 +28,7 @@
                                     color="#0070f2"
                                     class="sapUiSmallMarginEnd" />
                                 <Title
-                                    text="{config>/titulo2}"
+                                    text="{i18n>misSolicitudesTitle}"
                                     level="H4" />
                             </HBox>
                         </content>
@@ -48,7 +48,7 @@
                                     width="300px"
                                     class="sapUiMediumMarginEnd"
                                 />
-
+                                
                                 <ToolbarSpacer />
 
                                 <!-- Contador de registros -->
@@ -68,7 +68,7 @@
                             enableSelectAll="true"
                             ariaLabelledBy="tableTitle"
                             rowSelectionChange="onRowSelectionChange"
-                            alternateRowColors="true"
+                            alternateRowColors="false"
                             columnHeaderVisible="true"
                             enableColumnReordering="true"
                             showNoData="true"
@@ -202,7 +202,7 @@
                                                 type="Reject"
                                                 visible="{
                                                             path: 'solicitudes>cust_status',
-                                                            formatter: '.isStatusEnCurso'
+                                                            formatter: '.formatter.isStatusEnCurso'
                                                         }"
                                             />
                                         </HBox>
