@@ -60,7 +60,9 @@
       "i18n": {
         "type": "sap.ui.model.resource.ResourceModel",
         "settings": {
-          "bundleName": "com.inetum.missolicitudes.i18n.i18n"
+          "bundleName": "com.inetum.missolicitudes.i18n.i18n",
+          "supportedLocales": ["es", "en", ""],
+          "fallbackLocale": "es"
         }
       },
       "": {

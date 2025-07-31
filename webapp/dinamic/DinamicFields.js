@@ -5,18 +5,20 @@ sap.ui.define([
     "sap/m/Page",
     "sap/m/Label",
     "sap/m/Input",
-    "sap/m/DatePicker",
-    "sap/m/TextArea",
-    "sap/m/CheckBox",
-    "sap/m/ComboBox",
     "sap/ui/layout/form/SimpleForm",
     "sap/m/MessageToast",
     "sap/m/Button",
     "sap/m/Toolbar",
     "sap/m/ToolbarSpacer",
     "sap/m/ScrollContainer",
-    "sap/ui/core/Item"
-], function (BaseObject, formatter, View, Page, Label, Input, DatePicker, TextArea, CheckBox, ComboBox, SimpleForm, MessageToast, Button, Toolbar, ToolbarSpacer, ScrollContainer, Item) {
+    "sap/m/Panel", 
+    "sap/ui/layout/VerticalLayout",  
+    "sap/ui/layout/Grid",
+    "../service/Service",
+    "sap/ui/model/Filter",
+    "sap/ui/model/FilterOperator",
+    "../Utils/Util"
+], function (BaseObject, formatter, View, Page, Label, Input, SimpleForm, MessageToast, Button, Toolbar, ToolbarSpacer, ScrollContainer, Panel, VerticalLayout, Grid, Service, Filter, FilterOperator, Util) {
     "use strict";
 
     return BaseObject.extend("com.inetum.missolicitudes.dinamic.DinamicFields", {
@@ -31,59 +33,120 @@ sap.ui.define([
         /**
          * Mostrar vista de detalle dinámica
          */
-        showDynamicDetailView: function(sSolicitudId) {
-            // Buscar la solicitud en los datos ya cargados
-            var oSolicitudesModel = this._oMainView.getModel("solicitudes");
-            var aSolicitudes = oSolicitudesModel.getProperty("/solicitudes/results");
-            
-            var oSolicitud = aSolicitudes.find(function(item) {
-                return item.externalCode === sSolicitudId;
-            });
+        showDynamicDetailView: async function(sSolicitudId) {
+            try {
+                Util.showBI(true);
+                
+                // Buscar la solicitud en los datos ya cargados
+                var oSolicitud = this._findSolicitudById(sSolicitudId);
+                if (!oSolicitud) {
+                    MessageToast.show("Solicitud no encontrada: " + sSolicitudId);
+                    Util.showBI(false);
+                    return;
+                }
 
-            if (!oSolicitud) {
-                MessageToast.show("Solicitud no encontrada: " + sSolicitudId);
-                return;
+                // Cargar campos dinámicos DM_0003
+                var aDynamicFields = await this._loadDynamicFields(sSolicitudId);
+                
+                // Crear la vista dinámica
+                var oDetailView = this._createDetailView(oSolicitud, aDynamicFields);
+                
+                // Navegar a la vista
+                this._navigateToDetailView(oDetailView);
+                
+                Util.showBI(false);
+                
+            } catch (error) {
+                Util.showBI(false);
+                MessageToast.show("Error al cargar vista de detalle: " + error.message);
+                console.error("Error showDynamicDetailView:", error);
             }
-
-            // Crear la vista dinámica
-            var oDetailView = this._createDetailView(oSolicitud);
-            
-            // Obtener el contenedor principal de la app
-            var oApp = this._oMainView.getParent();
-            
-            // Agregar la nueva vista
-            oApp.addPage(oDetailView);
-            
-            // Navegar a la nueva vista
-            oApp.to(oDetailView.getId());
         },
 
         /**
-         * Crear vista de detalle programáticamente
+         * Buscar solicitud por ID
          */
-        _createDetailView: function(oSolicitudData) {
+        _findSolicitudById: function(sSolicitudId) {
+            var oSolicitudesModel = this._oMainView.getModel("solicitudes");
+            var aSolicitudes = oSolicitudesModel.getProperty("/solicitudes/results");
+            
+            return aSolicitudes.find(function(item) {
+                return item.externalCode === sSolicitudId;
+            });
+        },
+
+        /**
+         * Cargar campos dinámicos desde DM_0003
+         */
+        _loadDynamicFields: async function(sSolicitudId) {
+            try {
+                var oSolicitud = this._findSolicitudById(sSolicitudId);
+                if (!oSolicitud) {
+                    throw new Error("Solicitud no encontrada");
+                }
+
+                var oModel = this._oController.getOwnerComponent().getModel();
+                
+                // Filtro por external code
+                var aFilters = [
+                    new Filter("cust_INETUM_SOL_DM_0001_externalCode", 
+                              FilterOperator.EQ, 
+                              oSolicitud.externalCode)
+                ];
+
+                // Parámetros básicos
+                var oParam = {
+                    bParam: true,
+                    oParameter: {
+                        "$format": "json",
+                        "$orderby": "externalCode asc"
+                    }
+                };
+
+                // Llamar al servicio
+                var { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0003", oModel, aFilters, oParam);                
+          
+                return data.results || [];
+                
+            } catch (error) {
+                console.error("Error cargando campos dinámicos:", error);
+                return [];
+            }
+        },
+
+        /**
+         * Crear vista de detalle con Panel y márgenes
+         */
+        _createDetailView: function(oSolicitud, aDynamicFields) {
             var that = this;
             
-            // Crear formulario dinámico de solo lectura
-            var oForm = this._createReadOnlyForm(oSolicitudData);
+            // Crear formulario simple
+            var oForm = this._createSimpleForm(oSolicitud, aDynamicFields);
             
-            // Crear ScrollContainer
+            // Crear Panel que contenga el formulario
+            var oPanel = this._createPanelWithForm(oForm, oSolicitud);
+            
+            // VerticalLayout con márgenes para contener el panel
+            var oLayoutWithMargins = this._createLayoutWithMargins(oPanel);
+            
+            // ScrollContainer
             var oScrollContainer = new ScrollContainer({
                 height: "100%",
                 horizontal: false,
-                content: [oForm]
+                vertical: true,
+                content: [oLayoutWithMargins]
             });
 
-            // Botones del footer
             var oCancelRequestButton = new Button({
                 text: "Cancelar Solicitud",
                 type: "Reject",
-                visible: oSolicitudData.cust_status === "EN_CURSO",
+                visible: oSolicitud.cust_status === "EN_CURSO",
                 press: function() {
-                    that._onCancelRequest(oSolicitudData, oDetailView);
+                    that._onCancelRequest(oSolicitud, oDetailView);
                 }
             });
 
+            // Botones del footer
             var oCloseButton = new Button({
                 text: "Cerrar",
                 type: "Emphasized",
@@ -92,7 +155,6 @@ sap.ui.define([
                 }
             });
 
-            // Footer
             var oFooterToolbar = new Toolbar({
                 content: [
                     new ToolbarSpacer(),
@@ -101,9 +163,9 @@ sap.ui.define([
                 ]
             });
 
-            // Página principal
+            // Página
             var oPage = new Page({
-                title: "Solicitud: " + (oSolicitudData.cust_nombreSol || oSolicitudData.externalCode),
+                title: "Solicitud: " + oSolicitud.externalCode,
                 showNavButton: true,
                 navButtonPress: function() {
                     that._onBackToMain(oDetailView);
@@ -112,366 +174,164 @@ sap.ui.define([
                 footer: oFooterToolbar
             });
 
-            // Crear la vista
+            // Vista
             var oDetailView = new View({
                 id: "dynamicDetailView_" + Date.now(),
                 content: [oPage]
             });
 
-            // Modelo para la vista
-            var oDetailModel = new sap.ui.model.json.JSONModel(oSolicitudData);
-            oDetailView.setModel(oDetailModel, "solicitudDetail");
-
-            // Copiar otros modelos necesarios
-            oDetailView.setModel(this._oMainView.getModel("config"), "config");
-            oDetailView.setModel(this._oMainView.getModel("solicitudes"), "solicitudes");
-            
-            // Copiar el modelo de tipos de campo si existe
-            if (this._oMainView.getModel("typeNav")) {
-                oDetailView.setModel(this._oMainView.getModel("typeNav"), "typeNav");
-            }
-
             return oDetailView;
         },
 
         /**
-         * Crear formulario de solo lectura
+         * Crear Panel que contiene el formulario
          */
-        _createReadOnlyForm: function(oSolicitudData) {
+        _createPanelWithForm: function(oForm, oSolicitud) {
+            var oPanel = new Panel({
+                headerText: "Detalles de la Solicitud",
+                expandable: true,
+                expanded: true,
+                backgroundDesign: "Translucent",
+                content: [oForm],
+                width: "100%"
+            });
+
+            return oPanel;
+        },
+
+        /**
+         * Crear layout con márgenes alrededor del panel usando Grid
+         */
+        _createLayoutWithMargins: function(oPanel) {
+            // Usar Grid para centrar el panel de forma nativa
+            var oGrid = new Grid({
+                defaultSpan: "XL12 L12 M12 S12",
+                hSpacing: 1,
+                vSpacing: 1,
+                content: [oPanel]
+            });
+
+            oGrid.addStyleClass("sapUiMediumMarginTop");
+
+            return oGrid;
+        },
+
+        /**
+         * Crear formulario simple con campos básicos + dinámicos
+         */
+        _createSimpleForm: function(oSolicitud, aDynamicFields) {
             var oForm = new SimpleForm({
-                editable: true, // Cambiar a true para mejor alineación
+                editable: true,
                 layout: "ResponsiveGridLayout",
-                labelSpanXL: 3,
-                labelSpanL: 3,
+                // Configuración para dos columnas con espaciado reducido
+                labelSpanXL: 4,
+                labelSpanL: 4,
                 labelSpanM: 4,
                 labelSpanS: 12,
                 adjustLabelSpan: false,
-                emptySpanXL: 4,
-                emptySpanL: 4,
+                emptySpanXL: 0,
+                emptySpanL: 0,
                 emptySpanM: 0,
                 emptySpanS: 0,
-                columnsXL: 1,
-                columnsL: 1,
+                // Configurar para 2 columnas en pantallas grandes
+                columnsXL: 2,
+                columnsL: 2,
                 columnsM: 1,
-                singleContainerFullSize: false,
                 content: []
             });
             
-            this._createDisplayFields(oForm, oSolicitudData);
+            //  Agregar campos básicos
+            this._addBasicFields(oForm, oSolicitud);
+            
+            // Agregar campos dinámicos directamente
+            this._addDynamicFields(oForm, aDynamicFields);
+            
             return oForm;
         },
-        
-        /**
-         * Crear campos de visualización basados en los datos recibidos
-         */
-        _createDisplayFields: function(oForm, oSolicitudData) {
-            // Configuración básica de campos que siempre se muestran
-            var aBaseFields = this._getBaseFieldsConfiguration();
-
-            // Agregar campos base
-            aBaseFields.forEach(function(oFieldConfig) {
-                this._addDisplayField(oForm, oFieldConfig, oSolicitudData);
-            }.bind(this));
-
-            // Agregar campos dinámicos adicionales si existen
-            this._addDynamicFields(oForm, oSolicitudData);
-        },
 
         /**
-         * Obtener configuración base de campos (centralizada)
+         * Agregar campos básicos de la solicitud
          */
-        _getBaseFieldsConfiguration: function() {
-            return [
+        _addBasicFields: function(oForm, oSolicitud) {
+            var aBasicFields = [
                 {
                     property: "externalCode",
-                    label: "ID Solicitud",
-                    type: "text"
+                    label: "Solicitud"
                 },
                 {
-                    property: "cust_nombreSol",
-                    label: "Nombre de Solicitud",
-                    type: "text"
-                },
-                {
-                    property: "cust_nombreTSol",
-                    label: "Tipo de Solicitud", 
-                    type: "text"
-                },
-                {
-                    property: "cust_status",
+                    property: "cust_status", 
                     label: "Estado",
-                    type: "text",
                     formatter: this._formatStatus
-                },
-                {
-                    property: "cust_fechaSol",
-                    label: "Fecha Solicitud",
-                    type: "date",
-                    formatter: this.formatter.formatDateToYYYYMMDD
                 },
                 {
                     property: "effectiveStartDate",
                     label: "Fecha Inicio Efectiva",
-                    type: "date",
-                    formatter: this.formatter.formatDateToYYYYMMDD
+                    formatter: this._formatDate
                 },
                 {
                     property: "lastModifiedDateTime",
                     label: "Última Modificación",
-                    type: "datetime"
+                    formatter: this._formatDateTime
                 }
             ];
-        },
 
-        /**
-         * Agregar un campo de visualización al formulario
-         */
-        _addDisplayField: function(oForm, oFieldConfig, oSolicitudData) {
-            var vValue = oSolicitudData[oFieldConfig.property];
-            
-            // Solo agregar si el campo existe en los datos
-            if (vValue !== undefined && vValue !== null) {
-                // Crear label con labelFor para mejor alineación
-                var sFieldId = "field_" + oFieldConfig.property + "_" + Date.now();
-                var oLabel = new Label({
-                    text: oFieldConfig.label,
-                    labelFor: sFieldId
-                });
-
-                // Formatear el valor según el tipo
-                var sDisplayValue = this._formatValue(vValue, oFieldConfig.type, oFieldConfig.formatter);
-
-                // Crear campo de solo lectura
-                var oDisplayField = new Input({
-                    id: sFieldId,
-                    value: sDisplayValue,
-                    editable: false,
-                    enabled: true
-                });
-
-                // Agregar al formulario
-                oForm.addContent(oLabel);
-                oForm.addContent(oDisplayField);
-            }
-        },
-
-        /**
-         * Agregar campos dinámicos adicionales basados en configuración
-         */
-        _addDynamicFields: function(oForm, oSolicitudData) {
-            // Si hay modelo de configuración de tipos de campo, usarlo
-            var oTypeNavModel = this._oMainView.getModel("typeNav");
-            
-            if (oTypeNavModel) {
-                var aTypeConfig = oTypeNavModel.getProperty("/results") || [];
-                
-                // Filtrar configuraciones que apliquen a esta solicitud
-                var aApplicableFields = aTypeConfig.filter(function(oConfig) {
-                    // Aquí puedes agregar lógica para determinar qué campos mostrar
-                    // basado en el tipo de solicitud o cualquier otro criterio
-                    return oConfig.cust_status === "EN_CURSO"; // Solo en curso
-                });
-
-                // Crear campos basados en configuración
-                aApplicableFields.forEach(function(oFieldConfig) {
-                    this._createConfiguredField(oForm, oFieldConfig, oSolicitudData);
-                }.bind(this));
-            }
-
-            // Agregar cualquier campo personalizado que exista en los datos
-            this._addCustomFields(oForm, oSolicitudData);
-        },
-
-        /**
-         * Crear campo basado en configuración de tipo
-         */
-        _createConfiguredField: function(oForm, oFieldConfig, oSolicitudData) {
-            var sFieldProperty = oFieldConfig.cust_field || oFieldConfig.externalName;
-            var vValue = oSolicitudData[sFieldProperty];
-
-            if (vValue !== undefined && vValue !== null) {
-                var sFieldId = "field_" + sFieldProperty + "_" + Date.now();
-                var oLabel = new Label({
-                    text: oFieldConfig.cust_etiquetaOutput_defaultValue || oFieldConfig.cust_etiquetaInput_defaultValue || sFieldProperty,
-                    labelFor: sFieldId
-                });
-
-                var sDisplayValue = this._formatValueByType(vValue, oFieldConfig.cust_fieldType);
-
-                var oDisplayField = new Input({
-                    id: sFieldId,
-                    value: sDisplayValue,
-                    editable: false,
-                    enabled: true
-                });
-
-                oForm.addContent(oLabel);
-                oForm.addContent(oDisplayField);
-            }
-        },
-
-        /**
-         * Agregar campos personalizados que no estén en la configuración base
-         */
-        _addCustomFields: function(oForm, oSolicitudData) {
-            // Generar campos procesados dinámicamente basado en la configuración base
-            var aProcessedFields = this._getProcessedFieldsFromBaseConfig();
-            
-            // También agregar campos que ya fueron procesados por configuración externa
-            var aConfiguredFields = this._getConfiguredFields();
-            aProcessedFields = aProcessedFields.concat(aConfiguredFields);
-
-            Object.keys(oSolicitudData).forEach(function(sProperty) {
-                if (sProperty.startsWith("cust_") && 
-                    aProcessedFields.indexOf(sProperty) === -1 &&
-                    !sProperty.includes("_defaultValue") && 
-                    !sProperty.includes("Nav") &&
-                    !sProperty.includes("_localized") &&
-                    !sProperty.includes("TranslationText")) {
-                    
-                    var vValue = oSolicitudData[sProperty];
-                    if (vValue !== undefined && vValue !== null && vValue !== "") {
-                        var sLabel = this._generateLabelFromProperty(sProperty);
-                        var sFieldId = "field_" + sProperty + "_" + Date.now();
-                        var oLabel = new Label({
-                            text: sLabel,
-                            labelFor: sFieldId
-                        });
-
-                        var oDisplayField = new Input({
-                            id: sFieldId,
-                            value: String(vValue),
-                            editable: false,
-                            enabled: true
-                        });
-
-                        oForm.addContent(oLabel);
-                        oForm.addContent(oDisplayField);
-                    }
-                }
+            aBasicFields.forEach(function(oFieldConfig) {
+                this._addField(oForm, oFieldConfig.label, oSolicitud[oFieldConfig.property], oFieldConfig.formatter);
             }.bind(this));
         },
 
         /**
-         * Obtener campos procesados desde la configuración base dinámicamente
+         * Agregar campos dinámicos (todos los registros del array)
          */
-        _getProcessedFieldsFromBaseConfig: function() {
-            var aBaseFields = this._getBaseFieldsConfiguration();
+        _addDynamicFields: function(oForm, aDynamicFields) {
+            if (!aDynamicFields || aDynamicFields.length === 0) {              
+                return;
+            }       
 
-            // Extraer solo las propiedades
-            return aBaseFields.map(function(oField) {
-                return oField.property;
-            });
-        },
-
-        /**
-         * Obtener campos que ya fueron procesados por configuración externa (typeNav)
-         */
-        _getConfiguredFields: function() {
-            var aConfiguredFields = [];
-            var oTypeNavModel = this._oMainView.getModel("typeNav");
-            
-            if (oTypeNavModel) {
-                var aTypeConfig = oTypeNavModel.getProperty("/results") || [];
+            // Mostrar TODOS los registros del array, sin filtrar
+            aDynamicFields.forEach(function(oDynamicField, index) {
+                var sLabel = "Campo " + (index + 1);
+                var sValue = oDynamicField.cust_value || "(Vacío)";
                 
-                aTypeConfig.forEach(function(oConfig) {
-                    if (oConfig.cust_status === "EN_CURSO") { // Solo en curso
-                        var sFieldProperty = oConfig.cust_field || oConfig.externalName;
-                        if (sFieldProperty && aConfiguredFields.indexOf(sFieldProperty) === -1) {
-                            aConfiguredFields.push(sFieldProperty);
-                        }
-                    }
-                });
+                this._addField(oForm, sLabel, sValue);
+     
+            }.bind(this));
+           
+        },
+
+        /**
+         * Agregar un campo simple al formulario
+         */
+        _addField: function(oForm, sLabel, vValue, fnFormatter) {
+            // Formatear valor si hay formatter
+            var sDisplayValue = vValue;
+            if (fnFormatter && vValue !== undefined && vValue !== null) {
+                sDisplayValue = fnFormatter(vValue);
             }
             
-            return aConfiguredFields;
-        },
-
-        /**
-         * Formatear valor según tipo
-         */
-        _formatValue: function(vValue, sType, fnFormatter) {
-            if (fnFormatter) {
-                return fnFormatter(vValue);
+            // Si el valor está vacío, mostrar texto por defecto
+            if (sDisplayValue === undefined || sDisplayValue === null || sDisplayValue === "") {
+                sDisplayValue = "(Vacío)";
             }
-
-            switch (sType) {
-                case "date":
-                    return this._formatDate(vValue);
-                case "datetime":
-                    return this._formatDateTime(vValue);
-                case "text":
-                default:
-                    return String(vValue || "");
-            }
-        },
-
-        /**
-         * Formatear valor por tipo de campo de configuración
-         */
-        _formatValueByType: function(vValue, sFieldType) {
-            if (!sFieldType) return String(vValue || "");
-
-            switch (sFieldType.toUpperCase()) {
-                case "DATE":
-                case "DATEPICKER":
-                    return this._formatDate(vValue);
-                case "BOOLEAN":
-                case "CHECKBOX":
-                    return vValue ? "Sí" : "No";
-                case "NUMBER":
-                case "INTEGER":
-                    return Number(vValue).toLocaleString();
-                default:
-                    return String(vValue || "");
-            }
-        },
-
-        /**
-         * Formatear fecha
-         */
-        _formatDate: function(vDate) {
-            if (!vDate) return "";
             
-            var dDate;
-            if (vDate instanceof Date) {
-                dDate = vDate;
-            } else if (typeof vDate === "string") {
-                // Manejar formato SAP /Date(timestamp)/
-                if (vDate.includes("/Date(")) {
-                    var timestamp = vDate.match(/\d+/)[0];
-                    dDate = new Date(parseInt(timestamp));
-                } else {
-                    dDate = new Date(vDate);
-                }
-            } else {
-                return String(vDate);
-            }
-
-            return dDate.toLocaleDateString('es-ES');
-        },
-
-        /**
-         * Formatear fecha y hora
-         */
-        _formatDateTime: function(vDateTime) {
-            if (!vDateTime) return "";
+            // Crear elementos
+            var sFieldId = "field_" + Date.now() + "_" + Math.random();
             
-            var dDate;
-            if (vDateTime instanceof Date) {
-                dDate = vDateTime;
-            } else if (typeof vDateTime === "string") {
-                if (vDateTime.includes("/Date(")) {
-                    var timestamp = vDateTime.match(/\d+/)[0];
-                    dDate = new Date(parseInt(timestamp));
-                } else {
-                    dDate = new Date(vDateTime);
-                }
-            } else {
-                return String(vDateTime);
-            }
+            var oLabel = new Label({
+                text: sLabel,
+                labelFor: sFieldId
+            });
 
-            return dDate.toLocaleString('es-ES');
+            var oInput = new Input({
+                id: sFieldId,
+                value: String(sDisplayValue),
+                editable: false,
+                enabled: true
+            });
+
+            // Agregar al formulario
+            oForm.addContent(oLabel);
+            oForm.addContent(oInput);
         },
 
         /**
@@ -480,28 +340,67 @@ sap.ui.define([
         _formatStatus: function(sStatus) {
             var oStatusMap = {
                 "EN_CURSO": "En Curso",
-                "COMPLETADO": "Completado", 
+                "COMPLETADO": "Completado",
                 "CANCELADO": "Cancelado",
                 "RECHAZADO": "Rechazado"
             };
-
             return oStatusMap[sStatus] || sStatus;
         },
 
         /**
-         * Generar etiqueta legible desde nombre de propiedad
+         * Formatear fecha
          */
-        _generateLabelFromProperty: function(sProperty) {
-            // Remover prefijo cust_ y convertir camelCase a palabras
-            var sClean = sProperty.replace(/^cust_/, "");
-            return sClean.replace(/([A-Z])/g, " $1")
-                         .replace(/^./, function(str) { return str.toUpperCase(); })
-                         .trim();
+        _formatDate: function(vDate) {
+            if (!vDate) return "";
+            
+            try {
+                var dDate;
+                if (vDate instanceof Date) {
+                    dDate = vDate;
+                } else if (typeof vDate === "string") {
+                    if (vDate.includes("/Date(")) {
+                        var timestamp = vDate.match(/\d+/)[0];
+                        dDate = new Date(parseInt(timestamp));
+                    } else {
+                        dDate = new Date(vDate);
+                    }
+                } else {
+                    return String(vDate);
+                }
+                
+                return dDate.toLocaleDateString('es-ES');
+            } catch (error) {
+                return String(vDate);
+            }
         },
 
         /**
-         * Manejar cancelación de solicitud desde vista de detalle
+         * Formatear fecha y hora
          */
+        _formatDateTime: function(vDateTime) {
+            if (!vDateTime) return "";
+            
+            try {
+                var dDate;
+                if (vDateTime instanceof Date) {
+                    dDate = vDateTime;
+                } else if (typeof vDateTime === "string") {
+                    if (vDateTime.includes("/Date(")) {
+                        var timestamp = vDateTime.match(/\d+/)[0];
+                        dDate = new Date(parseInt(timestamp));
+                    } else {
+                        dDate = new Date(vDateTime);
+                    }
+                } else {
+                    return String(vDateTime);
+                }
+                
+                return dDate.toLocaleString('es-ES');
+            } catch (error) {
+                return String(vDateTime);
+            }
+        },
+
         _onCancelRequest: function(oSolicitudData, oDetailView) {
             var that = this;
             
@@ -526,15 +425,24 @@ sap.ui.define([
         },
 
         /**
+         * Navegar a vista de detalle
+         */
+        _navigateToDetailView: function(oDetailView) {
+            var oApp = this._oMainView.getParent();
+            oApp.addPage(oDetailView);
+            oApp.to(oDetailView.getId());
+        },
+
+        /**
          * Volver a la vista principal
          */
         _onBackToMain: function(oDetailView) {
-            var oApp = this._oMainView.getParent();            
+            var oApp = this._oMainView.getParent();
             
-            // Volver a la vista principal
+            // Volver
             oApp.back();
             
-            // Remover la vista dinámica para limpiar memoria
+            // Limpiar memoria
             setTimeout(function() {
                 if (oDetailView) {
                     oApp.removePage(oDetailView);

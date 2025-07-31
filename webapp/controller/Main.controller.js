@@ -1,8 +1,6 @@
 sap.ui.define([
     "sap/ui/core/mvc/Controller",
     "sap/ui/model/json/JSONModel",
-    "sap/ui/core/Fragment",
-    "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
@@ -11,32 +9,26 @@ sap.ui.define([
     "../model/formatter",
     "../Utils/Util",
 
-], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, Filter, FilterOperator, DinamicFields, Service, formatter, Util) {
+], function (Controller, JSONModel, MessageBox, Filter, FilterOperator, DinamicFields, Service, formatter, Util) {
     "use strict";
 
     return Controller.extend("com.inetum.missolicitudes.controller.Main", {
         formatter: formatter,
 
         onInit: function () {
-            // Crear datos mock directamente aquí para evitar problemas de dependencias
-            // var oMockData = this._createMockData();
-            // console.log("Datos mock creados:", oMockData); // Debug
-
-            // var oSolicitudesModel = new JSONModel(oMockData);
-            // this.getView().setModel(oSolicitudesModel, "solicitudes");
+   
 
             // Modelo para el diálogo de detalles
             var oDetailModel = new JSONModel({});
             this.getView().setModel(oDetailModel, "detailDialog");
 
-            // Variable para el fragment
-            this._pDetailFragment = null;
-
             var sLanguage = sap.ui.getCore().getConfiguration().getLanguage();
             console.log("Idioma UI5:", sLanguage);
 
-            var currentUser = sap.ushell.Container.getService("UserInfo");
-            console.log("Usuario Actual: ", currentUser);
+            let rawUserId = sap.ushell.Container.getService('UserInfo').getId();
+            let UserId = (rawUserId === "DEFAULT_USER" || !rawUserId) ? "SFADMIN_RCP" : rawUserId;
+
+            console.log("Usuario Actual: ", UserId);
 
             // this.oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
             // Util.onShowMessage(oResourceBundle.getText("messageNotRedirectToClaimCreation"), "error");
@@ -47,28 +39,31 @@ sap.ui.define([
 
         onAfterRendering: async function () {
 
+            var oModel = this.getOwnerComponent().getModel();
 
-            // var oModel = this.getOwnerComponent().getModel();
+            oModel.read("/cust_INETUM_SOL_C_0001", {
+                urlParameters: {
+                    "$expand": "cust_tipoObjectNav,cust_idTipo2Nav,cust_nombreSolTranslationTextNav,cust_objectNav",
+                    "$format": "json",
+                    "$top": "50"
 
-            // oModel.read("/cust_INETUM_SOL_C_0001", {
-            //     urlParameters: {
-            //         "$expand": "cust_idTipoNav",
-            //         "$format": "json",
-            //         "$top": "50"
-
-            //     },
-            //     success: function(oData) {
-            //         console.log("Expand:", oData);
-            //     },
-            //     error: function(oError) {
-            //         console.error("Error:", oError);
-            //     }
-            // });
+                },
+                success: function (oData) {
+                    console.log("Datos de SOL_C_0001:", oData);
+                },
+                error: function (oError) {
+                    console.error("Error:", oError);
+                }
+            });
 
             this.onGetDM001();
 
 
         },
+
+        /**
+        * Con la entidad cust_INETUM_SOL_DM_0002 y expand createdByNav recupero nombre usuario, correo, Id
+        */
 
         onGetDM001: async function () {
             Util.showBI(true);
@@ -83,7 +78,7 @@ sap.ui.define([
                 const oParam = {
                     bParam: true,
                     oParameter: {
-                        //  "$expand": "cust_idTipo2Nav",                      
+                        "$expand": "cust_tipoObjectNav/labelTranslationTextNav,cust_objectNav,cust_statusNav,mdfSystemRecordStatusNav",
                         "$format": "json",
                         "$top": "50"
                         // "$select": "externalCode,cust_nombreSol_localized,cust_status,cust_idTipo,effectiveStartDate,lastModifiedDateTime" cust_fieldTypeNav
@@ -94,7 +89,13 @@ sap.ui.define([
                 const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, [], oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
 
                 data.results.forEach(item => {
+
+                    // if (item.cust_status === "CA") {
+                    //     item.cust_status = "EC"  // ****** Pruebas para cambiar status de la solicitud ****** //
+                    // }
+
                     item.cust_status = formatter.formatNameStatus(item.cust_status)
+
                 });
 
                 const oSolicitudesData = {
@@ -104,10 +105,9 @@ sap.ui.define([
                     }
                 };
                 var oSolicitudesModel = new JSONModel(oSolicitudesData);
-                this.getView().setModel(oSolicitudesModel, "solicitudes");
-                // this._configureTableRowVisibility(data.results.length);
-                Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');
-                this.onGetSOL0004();
+                this.getView().setModel(oSolicitudesModel, "solicitudes");             
+                // Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');
+                this.onGetSOL0003();
                 Util.showBI(false);
 
             } catch (error) {
@@ -116,7 +116,7 @@ sap.ui.define([
             }
         },
 
-        onGetSOL0004: async function () {
+        onGetSOL0003: async function () {
             Util.showBI(true);
             try {
                 const oModel = this.getOwnerComponent().getModel();
@@ -129,7 +129,7 @@ sap.ui.define([
                 const oParam = {
                     bParam: true,
                     oParameter: {
-                        "$expand": "cust_fieldTypeNav",
+                        "$expand": "cust_objectNav,cust_tipoObjectNav",
                         "$format": "json",
                         "$top": "50"
 
@@ -137,12 +137,11 @@ sap.ui.define([
                 };
 
                 // LLamar al servicio
-                const { data } = await Service.readDataERP("/cust_INETUM_SOL_C_0004", oModel, [], oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
+                const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0003", oModel, [], oParam);   // ("/cust_INETUM_SOL_DM_0003", oModel, [], {} ) Si no se necesitan filtros o parametros
 
                 var oTypeNav = new JSONModel(data);
-                this.getView().setModel(oTypeNav, "typeNav");
-                // this._configureTableRowVisibility(data.results.length);
-                Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');
+                this.getView().setModel(oTypeNav, "typeNav");          
+                // Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');
                 Util.showBI(false);
 
             } catch (error) {
@@ -151,79 +150,6 @@ sap.ui.define([
             }
         },
 
-
-        /**
-         * Crear datos mock directamente en el controller
-         */
-        _createMockData: function () {
-            return {
-                solicitudes: {
-                    totalCount: 8,
-                    results: [
-                        {
-                            idSolicitud: "SOL-2024-001",
-                            cust_nombreSol: "Actualización Datos Personales",
-                            cust_nombreTSol: "Cambios Personales",
-                            cust_fechaSol: new Date("2024-07-08T09:30:00"),
-                            cust_status: "EN_CURSO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-002",
-                            cust_nombreSol: "Solicitud de Vacaciones",
-                            cust_nombreTSol: "Permisos y Ausencias",
-                            cust_fechaSol: new Date("2024-07-05T14:15:00"),
-                            cust_status: "COMPLETADO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-003",
-                            cust_nombreSol: "Cambio de Departamento",
-                            cust_nombreTSol: "Cambios Laborales",
-                            cust_fechaSol: new Date("2024-07-01T11:20:00"),
-                            cust_status: "EN_CURSO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-004",
-                            cust_nombreSol: "Actualización Información Bancaria",
-                            cust_nombreTSol: "Cambios Financieros",
-                            cust_fechaSol: new Date("2024-06-28T16:45:00"),
-                            cust_status: "RECHAZADO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-005",
-                            cust_nombreSol: "Solicitud Permiso Médico",
-                            cust_nombreTSol: "Permisos y Ausencias",
-                            cust_fechaSol: new Date("2024-06-25T08:00:00"),
-                            cust_status: "CANCELADO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-006",
-                            cust_nombreSol: "Cambio de Horario",
-                            cust_nombreTSol: "Cambios Laborales",
-                            cust_fechaSol: new Date("2024-06-20T13:30:00"),
-                            cust_status: "EN_CURSO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-007",
-                            cust_nombreSol: "Solicitud Formación",
-                            cust_nombreTSol: "Desarrollo Profesional",
-                            cust_fechaSol: new Date("2024-06-15T10:15:00"),
-                            cust_status: "COMPLETADO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-008",
-                            cust_nombreSol: "Actualización Dirección",
-                            cust_nombreTSol: "Cambios Personales",
-                            cust_fechaSol: new Date("2024-06-10T15:45:00"),
-                            cust_status: "EN_CURSO"
-                        }
-                    ]
-                }
-            };
-        },
-
-        /**
-         * Event handlers básicos
-         */
         onRowSelectionChange: function (oEvent) {
             var oTable = oEvent.getSource();
             var aSelectedIndices = oTable.getSelectedIndices();
@@ -247,7 +173,8 @@ sap.ui.define([
                 var aFilters = [
                     new sap.ui.model.Filter("cust_nombreSol", sap.ui.model.FilterOperator.Contains, sQuery),
                     new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery),
-                    new sap.ui.model.Filter("idSolicitud", sap.ui.model.FilterOperator.Contains, sQuery)
+                    new sap.ui.model.Filter("externalCode", sap.ui.model.FilterOperator.Contains, sQuery),
+                    new sap.ui.model.Filter("cust_status", sap.ui.model.FilterOperator.Contains, sQuery)
                 ];
                 var oMainFilter = new sap.ui.model.Filter(aFilters, false);
                 oBinding.filter([oMainFilter]);
@@ -276,6 +203,7 @@ sap.ui.define([
         },
 
         onVisualizarPress: function (oEvent) {
+            Util.showBI(true);
             var oContext = oEvent.getSource().getBindingContext("solicitudes");
             var oSolicitud = oContext.getObject();
 
@@ -287,7 +215,7 @@ sap.ui.define([
          */
         onCancelarPress: function (oEvent) {
             var oContext = oEvent.getSource().getBindingContext("solicitudes");
-            var sNombreSol = oContext.getProperty("cust_nombreSol");
+            var oSolicitudCompleta = oContext.getObject();
             var sSolicitudId = oContext.getProperty("externalCode");
 
             var sMessage = "¿Está seguro que desea cancelar la solicitud '" + sSolicitudId + "'?";
@@ -298,9 +226,11 @@ sap.ui.define([
                 emphasizedAction: MessageBox.Action.NO,
                 onClose: function (oAction) {
                     if (oAction === MessageBox.Action.YES) {
-                        // CORREGIDO: Usar el nombre correcto del campo
                         oContext.getModel().setProperty(oContext.getPath() + "/cust_status", "CANCELADO");
+                        this.onChangeStatus(oSolicitudCompleta);
+
                         Util.onShowMessage("Solicitud " + sSolicitudId + " cancelada correctamente", "toast");
+
                         // Forzar actualización de la tabla
                         var oTable = this.byId("solicitudesTable");
                         oTable.getModel("solicitudes").refresh();
@@ -346,15 +276,54 @@ sap.ui.define([
             });
 
             if (iIndex >= 0) {
+                var oSolicitudCompleta = aSolicitudes[iIndex];
                 oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "CANCELADO");
-                Util.onShowMessage("Solicitud " + sSolicitudId + " cancelada correctamente", 'toast');
+                Util.onShowMessage("Solicitud " + oSolicitudCompleta.externalCode + " cancelada correctamente", 'toast');
 
+                this.onChangeStatus(oSolicitudCompleta);
                 // Forzar actualización
-                oModel.refresh();
+                oModel.refresh(sSolicitudId);
                 return true;
             }
             return false;
-        }
+        },
 
+        onChangeStatus: async function (oSolicitud) {
+
+            const oModel = this.getOwnerComponent().getModel();
+            var sEntityPath = this._buildEntityPath(oSolicitud.externalCode, oSolicitud.effectiveStartDate);
+
+            try {
+              
+                let oDataToUpdate = {
+                    externalCode: oSolicitud.externalCode,
+                    cust_status: "CA",
+                    effectiveStartDate: formatter._formatEffectiveStartDate(oSolicitud.effectiveStartDate),
+                    cust_fechaAct: formatter._formatDateForSAP(new Date())
+                }
+
+                let { oResult } = await Service.updateDataERP(sEntityPath, oModel, oDataToUpdate);
+                Util.onShowMessage("Solicitud " + oSolicitud.externalCode + " cancelada correctamente", 'toast');
+                console.log("Solicitud actualizada en backend exitosamente:", oResult);
+
+            } catch (error) {
+                Util.onShowMessage("Error " + (error.message || error), 'toast');
+                Util.showBI(false);
+
+            }
+
+        },
+
+        _buildEntityPath: function (sExternalCode, sEffectiveStartDate) {
+            // Formatear effectiveStartDate para la URL
+            var sFormattedDate = formatter._formatDateForEntityPath(sEffectiveStartDate);
+
+            // Construir path con clave compuesta
+            var sEntityPath = `/cust_INETUM_SOL_DM_0001(effectiveStartDate=datetime'${sFormattedDate}',externalCode='${sExternalCode}')`;
+
+            return sEntityPath;
+        },
+
+        
     });
 });

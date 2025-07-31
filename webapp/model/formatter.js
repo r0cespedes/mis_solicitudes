@@ -132,7 +132,59 @@ sap.ui.define([], function () {
                 console.error("Error en formatTimeAgo:", e);
                 return "";
             }
+        },
+
+        _formatDateForSAP: function (dDate) {
+            if (!dDate || !(dDate instanceof Date)) {
+                return null;
+            }
+
+            // Formato SAP: /Date(timestamp)/
+            var iTimestamp = dDate.getTime();
+            return "/Date(" + iTimestamp + ")/";
+        },
+
+        _formatEffectiveStartDate: function (vEffectiveStartDate) {
+            // Si ya viene en formato SAP, mantenerlo
+            if (typeof vEffectiveStartDate === "string" && vEffectiveStartDate.includes("/Date(")) {
+                return vEffectiveStartDate;
+            }
+
+            // Si es Date object, convertir a formato SAP
+            if (vEffectiveStartDate instanceof Date) {
+                return this._formatDateForSAP(vEffectiveStartDate);
+            }
+
+            // Si es string de fecha, convertir
+            if (typeof vEffectiveStartDate === "string") {
+                var dDate = new Date(vEffectiveStartDate);
+                return this._formatDateForSAP(dDate);
+            }
+
+            // Fallback: usar fecha actual
+            console.warn("effectiveStartDate no válido, usando fecha actual");
+            return this._formatDateForSAP(new Date());
+        },
+
+        _formatDateForEntityPath: function (vDate) {
+            var dDate;
+
+            // Si viene en formato SAP /Date(timestamp)/
+            if (typeof vDate === "string" && vDate.includes("/Date(")) {
+                var timestamp = vDate.match(/\d+/)[0];
+                dDate = new Date(parseInt(timestamp));
+            } else if (vDate instanceof Date) {
+                dDate = vDate;
+            } else if (typeof vDate === "string") {
+                dDate = new Date(vDate);
+            } else {
+                dDate = new Date();
+            }
+
+            // Retornar en formato ISO (requerido para EntityPath)
+            return dDate.toISOString();
         }
+
 
 
     };

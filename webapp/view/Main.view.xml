@@ -44,7 +44,8 @@
                                 <SearchField
                                     id="searchField"
                                     placeholder="{i18n>searchPlaceholder}"
-                                    search="onSearch"
+                                    
+                                    liveChange="onSearch"
                                     width="300px"
                                     class="sapUiMediumMarginEnd"
                                 />
@@ -82,7 +83,7 @@
                                 <table:Column
                                     width="30%"
                                     sortProperty="cust_nombreSol"
-                                    filterProperty="cust_nombreSol"
+                                    filterProperty="externalCode"
                                     showFilterMenuEntry="true"
                                     showSortMenuEntry="true"
                                 >
@@ -93,9 +94,11 @@
                                         />
                                     </table:label>
                                     <table:template>                                       
-                                            <FormattedText
-                                                htmlText="&lt;strong&gt;{solicitudes>cust_nombreSol_defaultValue}&lt;/strong&gt;"
-                                            />
+                                            <!-- <FormattedText htmlText="&lt;strong&gt;{solicitudes>externalCode}&lt;/strong&gt;" /> -->
+                                            <Text
+                                            text="{solicitudes>externalCode}"
+                                            wrapping="true"
+                                        />
                                     </table:template>
                                 </table:Column>
 
