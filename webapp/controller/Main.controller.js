@@ -16,7 +16,7 @@ sap.ui.define([
         formatter: formatter,
 
         onInit: function () {
-   
+
 
             // Modelo para el diálogo de detalles
             var oDetailModel = new JSONModel({});
@@ -25,53 +25,89 @@ sap.ui.define([
             var sLanguage = sap.ui.getCore().getConfiguration().getLanguage();
             console.log("Idioma UI5:", sLanguage);
 
-            let rawUserId = sap.ushell.Container.getService('UserInfo').getId();
-            let UserId = (rawUserId === "DEFAULT_USER" || !rawUserId) ? "SFADMIN_RCP" : rawUserId;
-
-            console.log("Usuario Actual: ", UserId);
+            this.loadCurrentUser();
 
             // this.oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
-            // Util.onShowMessage(oResourceBundle.getText("messageNotRedirectToClaimCreation"), "error");
+            // Util.onShowMessage(oResourceBundle.getText("message"), "error");
 
             //Pasar la referencia del controlador
             this._oDinamicFields = new DinamicFields(this);
         },
 
-        onAfterRendering: async function () {
 
-            var oModel = this.getOwnerComponent().getModel();
-
-            oModel.read("/cust_INETUM_SOL_C_0001", {
-                urlParameters: {
-                    "$expand": "cust_tipoObjectNav,cust_idTipo2Nav,cust_nombreSolTranslationTextNav,cust_objectNav",
-                    "$format": "json",
-                    "$top": "50"
-
+        loadCurrentUser: function () {
+            var that = this;
+            
+            $.ajax({
+                url: sap.ui.require.toUrl("com/inetum/missolicitudes") + "/user-api/currentUser",
+                method: "GET",
+                async: true,
+                success: function (data) {
+                    that._setUserModel(data);
                 },
-                success: function (oData) {
-                    console.log("Datos de SOL_C_0001:", oData);
-                },
-                error: function (oError) {
-                    console.error("Error:", oError);
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("Error obteniendo usuario:", jqXHR.status, jqXHR.responseText);
+                    that._setUserModel({
+                        displayName: '',
+                        email: '',
+                        firstname: '',
+                        lastname: '',
+                        name: ''
+                    });
                 }
             });
-
-            this.onGetDM001();
-
-
         },
+        
+        _setUserModel: function (userData) {
+            var oViewUserModel = new sap.ui.model.json.JSONModel([{
+                "displayName": userData.displayName || '',
+                "email": userData.email || '',
+                "firstname": userData.firstname || '',
+                "lastname": userData.lastname || '',
+                "name": userData.name || ''
+            }]);
+            
+            this.getView().setModel(oViewUserModel, "oModelUser");
+            sap.ui.getCore().setModel(oViewUserModel, "oModelUser");
+            sessionStorage.setItem("displayName", oViewUserModel.getProperty("/0/name"));
+            this.onGetDM001(oViewUserModel.getData()[0]);
+        },
+
+        // onAfterRendering: async function () {
+
+        //     var oModel = this.getOwnerComponent().getModel();
+
+        //     oModel.read("/cust_INETUM_SOL_C_0001", {
+        //         urlParameters: {
+        //             "$expand": "cust_tipoObjectNav,cust_idTipo2Nav,cust_nombreSolTranslationTextNav,cust_objectNav",
+        //             "$format": "json",
+        //             "$top": "50"
+
+        //         },
+        //         success: function (oData) {
+        //             console.log("Datos de SOL_C_0001:", oData);
+        //         },
+        //         error: function (oError) {
+        //             console.error("Error:", oError);
+        //         }
+        //     });
+
+        //     this.onGetDM001();
+
+
+        // },
 
         /**
         * Con la entidad cust_INETUM_SOL_DM_0002 y expand createdByNav recupero nombre usuario, correo, Id
         */
 
-        onGetDM001: async function () {
+        onGetDM001: async function (oCurrentUser) {
             Util.showBI(true);
+
             try {
                 const oModel = this.getOwnerComponent().getModel();
-
                 const aFilters = [
-                    new Filter("cust_object", FilterOperator.EQ, "SP")
+                    new Filter("createdBy", FilterOperator.EQ, 'SFADMIN_JJD') //oCurrentUser.name)
                 ];
 
                 // Parámetros para la consulta
@@ -88,14 +124,22 @@ sap.ui.define([
                 // LLamar al servicio
                 const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, [], oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
 
-                data.results.forEach(item => {
+                // data.results.forEach(item => {
 
                     // if (item.cust_status === "CA") {
                     //     item.cust_status = "EC"  // ****** Pruebas para cambiar status de la solicitud ****** //
                     // }
 
-                    item.cust_status = formatter.formatNameStatus(item.cust_status)
+                //     item.cust_status = formatter.formatNameStatus(item.cust_status)
+                // });
 
+                data.results.forEach(function(item, idx){
+                    item.cust_status = formatter.formatNameStatus(item.cust_status)
+                    if(!item.cust_nombreSol || !item.cust_nombreTSol){
+                        item.cust_nombreSol  = "Prueba Solicitud " + idx;
+                        item.cust_nombreTSol = "Prueba Tipo Solicitud " + idx;
+
+                    }
                 });
 
                 const oSolicitudesData = {
@@ -105,8 +149,7 @@ sap.ui.define([
                     }
                 };
                 var oSolicitudesModel = new JSONModel(oSolicitudesData);
-                this.getView().setModel(oSolicitudesModel, "solicitudes");             
-                // Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');
+                this.getView().setModel(oSolicitudesModel, "solicitudes");               
                 this.onGetSOL0003();
                 Util.showBI(false);
 
@@ -140,8 +183,7 @@ sap.ui.define([
                 const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0003", oModel, [], oParam);   // ("/cust_INETUM_SOL_DM_0003", oModel, [], {} ) Si no se necesitan filtros o parametros
 
                 var oTypeNav = new JSONModel(data);
-                this.getView().setModel(oTypeNav, "typeNav");          
-                // Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');
+                this.getView().setModel(oTypeNav, "typeNav");                
                 Util.showBI(false);
 
             } catch (error) {
@@ -172,8 +214,7 @@ sap.ui.define([
             if (sQuery) {
                 var aFilters = [
                     new sap.ui.model.Filter("cust_nombreSol", sap.ui.model.FilterOperator.Contains, sQuery),
-                    new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery),
-                    new sap.ui.model.Filter("externalCode", sap.ui.model.FilterOperator.Contains, sQuery),
+                    new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery),                    
                     new sap.ui.model.Filter("cust_status", sap.ui.model.FilterOperator.Contains, sQuery)
                 ];
                 var oMainFilter = new sap.ui.model.Filter(aFilters, false);
@@ -294,12 +335,13 @@ sap.ui.define([
             var sEntityPath = this._buildEntityPath(oSolicitud.externalCode, oSolicitud.effectiveStartDate);
 
             try {
-              
+
                 let oDataToUpdate = {
                     externalCode: oSolicitud.externalCode,
                     cust_status: "CA",
                     effectiveStartDate: formatter._formatEffectiveStartDate(oSolicitud.effectiveStartDate),
-                    cust_fechaAct: formatter._formatDateForSAP(new Date())
+                    cust_fechaAct: formatter._formatDateForSAP(new Date()),
+                    cust_indexStep: "0"
                 }
 
                 let { oResult } = await Service.updateDataERP(sEntityPath, oModel, oDataToUpdate);
@@ -324,6 +366,6 @@ sap.ui.define([
             return sEntityPath;
         },
 
-        
+
     });
 });

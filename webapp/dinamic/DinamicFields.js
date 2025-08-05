@@ -189,8 +189,8 @@ sap.ui.define([
         _createPanelWithForm: function(oForm, oSolicitud) {
             var oPanel = new Panel({
                 headerText: "Detalles de la Solicitud",
-                expandable: true,
-                expanded: true,
+                expandable: false,
+                expanded: false,
                 backgroundDesign: "Translucent",
                 content: [oForm],
                 width: "100%"

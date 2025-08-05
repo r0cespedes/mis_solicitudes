@@ -1,0 +1,10 @@
+{
+    "destinations": [
+      {
+        "name": "sap-approuter-userapi",
+        "url": "https://amb-btp-dev-6m5idb2d.authentication.eu10.hana.ondemand.com",
+        "forwardAuthToken": true
+      }
+    ]
+  }
+  
