@@ -1,8 +1,6 @@
 sap.ui.define([
     "sap/ui/core/mvc/Controller",
     "sap/ui/model/json/JSONModel",
-    "sap/ui/core/Fragment",
-    "sap/m/MessageToast",
     "sap/m/MessageBox",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
@@ -11,355 +9,213 @@ sap.ui.define([
     "../model/formatter",
     "../Utils/Util",
 
-], function (Controller, JSONModel, Fragment, MessageToast, MessageBox, Filter, FilterOperator, DinamicFields, Service, formatter, Util) {
+], function (Controller, JSONModel, MessageBox, Filter, FilterOperator, DinamicFields, Service, formatter, Util) {
     "use strict";
 
     return Controller.extend("com.inetum.missolicitudes.controller.Main", {
         formatter: formatter,
 
         onInit: function () {
-            // Crear datos mock directamente aquí para evitar problemas de dependencias
-            // var oMockData = this._createMockData();
-            // console.log("Datos mock creados:", oMockData); // Debug
-            
-            // var oSolicitudesModel = new JSONModel(oMockData);
-            // this.getView().setModel(oSolicitudesModel, "solicitudes");
-          
-            // Modelo para configuración
-            
-            var oConfigModel = new JSONModel({
-                titulo2: "Mis Solicitudes",
-                cancelar: "Cancelar", 
-                aceptar: "Aceptar",
-                cerrar: "Cerrar"
-            });
-            this.getView().setModel(oConfigModel, "config");
+
 
             // Modelo para el diálogo de detalles
             var oDetailModel = new JSONModel({});
             this.getView().setModel(oDetailModel, "detailDialog");
-            
-            // Variable para el fragment
-            this._pDetailFragment = null;
 
             var sLanguage = sap.ui.getCore().getConfiguration().getLanguage();
             console.log("Idioma UI5:", sLanguage);
 
-            var currentUser = sap.ushell.Container.getService("UserInfo");
-            console.log("Usuario Actual: ", currentUser);
+            this.loadCurrentUser();
 
             // this.oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
-            // Util.onShowMessage(oResourceBundle.getText("messageNotRedirectToClaimCreation"), "error");
+            // Util.onShowMessage(oResourceBundle.getText("message"), "error");
 
             //Pasar la referencia del controlador
             this._oDinamicFields = new DinamicFields(this);
         },
 
-        onAfterRendering: async function() {
 
- 
-            // var oModel = this.getOwnerComponent().getModel();
- 
-            // oModel.read("/cust_INETUM_SOL_C_0001", {
-            //     urlParameters: {
-            //         "$expand": "cust_idTipoNav",
-            //         "$format": "json",
-            //         "$top": "50"
-                    
-            //     },
-            //     success: function(oData) {
-            //         console.log("Expand:", oData);
-            //     },
-            //     error: function(oError) {
-            //         console.error("Error:", oError);
-            //     }
-            // });
+        loadCurrentUser: function () {
+            var that = this;
 
-             this.onGetDM001();
-
-
+            $.ajax({
+                url: sap.ui.require.toUrl("com/inetum/missolicitudes") + "/user-api/currentUser",
+                method: "GET",
+                async: true,
+                success: function (data) {
+                    that._setUserModel(data);
+                },
+                error: function (jqXHR, textStatus, errorThrown) {
+                    console.error("Error obteniendo usuario:", jqXHR.status, jqXHR.responseText);
+                    that._setUserModel({
+                        displayName: '',
+                        email: '',
+                        firstname: '',
+                        lastname: '',
+                        name: ''
+                    });
+                }
+            });
         },
 
-        onGetDM001: async function() {
+        _setUserModel: function (userData) {
+            var oViewUserModel = new sap.ui.model.json.JSONModel([{
+                "displayName": userData.displayName || '',
+                "email": userData.email || '',
+                "firstname": userData.firstname || '',
+                "lastname": userData.lastname || '',
+                "name": userData.name || ''
+            }]);
+
+            this.getView().setModel(oViewUserModel, "oModelUser");
+            sap.ui.getCore().setModel(oViewUserModel, "oModelUser");
+            sessionStorage.setItem("displayName", oViewUserModel.getProperty("/0/name"));
+            this.oCurrentUser = oViewUserModel.getData()[0];
+            this.onGetDM001();
+        },
+
+        /**
+        * Con la entidad cust_INETUM_SOL_DM_0002 y expand createdByNav recupero nombre usuario, correo, Id
+        */
+
+        onGetDM001: async function () {
             Util.showBI(true);
-            try {                        
-                const oModel = this.getOwnerComponent().getModel();                
-             
+
+            try {
+                const oModel = this.getOwnerComponent().getModel();
                 const aFilters = [
-                    new Filter("externalCode", FilterOperator.EQ, 19481)
+                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name), //this.oCurrentUser.name)
+                    new Filter("cust_status", FilterOperator.EQ, 'EC')
                 ];
-                
+
                 // Parámetros para la consulta
                 const oParam = {
                     bParam: true,
                     oParameter: {
-                        // "$expand": "cust_solicitanteNav,",                      
-                        "$format": "json",
-                        "$top": "50"
-                        // "$select": "externalCode,cust_nombreSol_localized,cust_status,cust_idTipo,effectiveStartDate,lastModifiedDateTime" cust_fieldTypeNav
+                        "$expand": "cust_steps,cust_solFields",
+                        "$format": "json"                        
                     }
                 };
-                
+
                 // LLamar al servicio
-                const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, [], oParam );   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
+                const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, aFilters, oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
 
                 data.results.forEach(item => {
-                    item.cust_status = 'EN_CURSO'
+                    item.cust_status = formatter.formatNameStatus(item.cust_status);                            
                 });
+
 
                 const oSolicitudesData = {
                     solicitudes: {
                         results: data.results,
                         totalCount: data.results.length
-                    }
+                    },
+
                 };
                 var oSolicitudesModel = new JSONModel(oSolicitudesData);
                 this.getView().setModel(oSolicitudesModel, "solicitudes");
-                // this._configureTableRowVisibility(data.results.length);
-                Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');  
-                this.onGetSOL0004();
-                Util.showBI(false);           
-                
-            } catch (error) {                
+                Util.showBI(false);
+
+            } catch (error) {
                 Util.onShowMessage("Error " + (error.message || error), 'toast');
                 Util.showBI(false);
             }
         },
 
-        onGetSOL0004: async function() {
-            Util.showBI(true);
-            try {                        
-                const oModel = this.getOwnerComponent().getModel();                
-             
-                const aFilters = [
-                    new Filter("externalCode", FilterOperator.EQ, 19481)
-                ];
-                
-                // Parámetros para la consulta
-                const oParam = {
-                    bParam: true,
-                    oParameter: {
-                        "$expand": "cust_fieldTypeNav",                      
-                        "$format": "json",
-                        "$top": "50"
-                        
-                    }
-                };
-                
-                // LLamar al servicio
-                const { data } = await Service.readDataERP("/cust_INETUM_SOL_C_0004", oModel, [], oParam );   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
-      
-                var oTypeNav = new JSONModel(data);
-                this.getView().setModel(oTypeNav, "typeNav");
-                // this._configureTableRowVisibility(data.results.length);
-                Util.onShowMessage(`Se econtraron: ${data.results ? data.results.length : 0} registros`, 'toast');               
-                Util.showBI(false);           
-                
-            } catch (error) {                
-                Util.onShowMessage("Error " + (error.message || error), 'toast');
-                Util.showBI(false);
-            }
-        },
-
-        onCreateData: async function(){
-            const oModel = this.getOwnerComponent().getModel(); 
-            try {
-                let oSend = {
-                    createdBy : "",
-                    createdDateTime : "",
-                    cust_INETUM_SOL_DM_0001_effectiveStartDate: "",
-                    cust_INETUM_SOL_DM_0001_externalCode: "",
-                    cust_field: "",
-                    cust_fieldLenght : "",
-                    cust_field: "",
-                    cust_object : "",
-                    cust_tipoObject: "",
-                    cust_value: "",
-                    externalCode: "",
-                    externalName: "",
-                    lastModifiedBy: "",
-                    lastModifiedDateTime: "",
-                    mdfSystemRecordStatus: "",
-    
-                }
-    
-                const { data: oResult } =  await Service.createDataERP("/cust_INETUM_SOL_DM_0003", oModel, oSend );  
-    
-                if (oResult.OMsjCgSet['results'][0]['Type'] === 'E') {
-                    Util.onShowMessage(oResult.OMsjCgSet['results'][0]['Message'], "error");
-                    return;
-                } else {
-                    Util.onShowMessage(oResult.OMsjCgSet['results'][0]['Message'], "done");
-                }
-                
-            } catch (oError) {
-                Util.onShowMessage(oError.message, "error");
-                    Util.showBI(false);
-                
-            }finally {
-                Util.showBI(false);
-            }           
-
-        },
-
-
-        /**
-         * Crear datos mock directamente en el controller
-         */
-        _createMockData: function() {
-            return {
-                solicitudes: {
-                    totalCount: 8,
-                    results: [
-                        {
-                            idSolicitud: "SOL-2024-001",
-                            cust_nombreSol: "Actualización Datos Personales",
-                            cust_nombreTSol: "Cambios Personales",
-                            cust_fechaSol: new Date("2024-07-08T09:30:00"),
-                            cust_status: "EN_CURSO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-002", 
-                            cust_nombreSol: "Solicitud de Vacaciones",
-                            cust_nombreTSol: "Permisos y Ausencias",
-                            cust_fechaSol: new Date("2024-07-05T14:15:00"),
-                            cust_status: "COMPLETADO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-003",
-                            cust_nombreSol: "Cambio de Departamento", 
-                            cust_nombreTSol: "Cambios Laborales",
-                            cust_fechaSol: new Date("2024-07-01T11:20:00"),
-                            cust_status: "EN_CURSO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-004",
-                            cust_nombreSol: "Actualización Información Bancaria",
-                            cust_nombreTSol: "Cambios Financieros", 
-                            cust_fechaSol: new Date("2024-06-28T16:45:00"),
-                            cust_status: "RECHAZADO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-005",
-                            cust_nombreSol: "Solicitud Permiso Médico",
-                            cust_nombreTSol: "Permisos y Ausencias",
-                            cust_fechaSol: new Date("2024-06-25T08:00:00"),
-                            cust_status: "CANCELADO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-006",
-                            cust_nombreSol: "Cambio de Horario",
-                            cust_nombreTSol: "Cambios Laborales",
-                            cust_fechaSol: new Date("2024-06-20T13:30:00"),
-                            cust_status: "EN_CURSO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-007",
-                            cust_nombreSol: "Solicitud Formación",
-                            cust_nombreTSol: "Desarrollo Profesional",
-                            cust_fechaSol: new Date("2024-06-15T10:15:00"),
-                            cust_status: "COMPLETADO"
-                        },
-                        {
-                            idSolicitud: "SOL-2024-008",
-                            cust_nombreSol: "Actualización Dirección",
-                            cust_nombreTSol: "Cambios Personales",
-                            cust_fechaSol: new Date("2024-06-10T15:45:00"),
-                            cust_status: "EN_CURSO"
-                        }
-                    ]
-                }
-            };
-        },
-
- 
-        isStatusEnCurso: function(sStatus) {
-            return sStatus === "EN_CURSO";
-        },
-
-        /**
-         * Event handlers básicos
-         */
-        onRowSelectionChange: function(oEvent) {
-            var oTable = oEvent.getSource();
-            var aSelectedIndices = oTable.getSelectedIndices();
-            
-            if (aSelectedIndices.length > 0) {
-                var iSelectedIndex = aSelectedIndices[0];
-                var oContext = oTable.getContextByIndex(iSelectedIndex);
-                
-                if (oContext) {
-                    console.log("Fila seleccionada:", oContext.getObject());
-                }
-            }
-        },
-
-        onSearch: function(oEvent) {
+        onSearch: function (oEvent) {
             var sQuery = oEvent.getParameter("newValue") || oEvent.getParameter("query");
-            var oTable = this.byId("solicitudesTable");
+            var oTable = this.byId("idRequestTable");
             var oBinding = oTable.getBinding("rows");
-            
+
             if (sQuery) {
                 var aFilters = [
                     new sap.ui.model.Filter("cust_nombreSol", sap.ui.model.FilterOperator.Contains, sQuery),
-                    new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery),
-                    new sap.ui.model.Filter("idSolicitud", sap.ui.model.FilterOperator.Contains, sQuery)
+                    new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery)                   
                 ];
                 var oMainFilter = new sap.ui.model.Filter(aFilters, false);
                 oBinding.filter([oMainFilter]);
             } else {
                 oBinding.filter([]);
+                this.clearAllFlters();
             }
+            this._updateTableCount()
         },
 
-        onEstadoFilterChange: function(oEvent) {
-            var sSelectedKey = oEvent.getParameter("selectedItem").getKey();
-            var oTable = this.byId("solicitudesTable");
-            var oBinding = oTable.getBinding("rows");
-            
-            if (sSelectedKey) {
-                var oFilter = new sap.ui.model.Filter("cust_status", sap.ui.model.FilterOperator.EQ, sSelectedKey);
-                oBinding.filter([oFilter]);
-            } else {
-                oBinding.filter([]);
+        clearAllFlters: function () {
+            var oTable = this.byId("idRequestTable");
+
+            oTable.getBinding()?.sort(null);
+            var oUiModel = this.getView().getModel("mLocalModel");
+            oUiModel.setProperty("/globalFilter", "");
+            oUiModel.setProperty("/availabilityFilterOn", false);
+
+            var aColumns = oTable.getColumns();
+            for (var i = 0; i < aColumns.length; i++) {
+                oTable.filter(aColumns[i], null);
             }
-        },
 
-        onRefresh: function() {
-            var oModel = this.getView().getModel("solicitudes");
-            oModel.refresh();
-            Util.onShowMessage("Solicitudes actualizadas", 'toast');
-        },
+            this._resetSortingState();
 
-        onVisualizarPress: function(oEvent){
-            var oContext = oEvent.getSource().getBindingContext("solicitudes");
-            var oSolicitud = oContext.getObject();
-            
-            this._oDinamicFields.showDynamicDetailView(oSolicitud.idSolicitud);
+        },
+        /**
+         * Quita el ordenamiento de cada columna en la tabla  
+        **/
+        _resetSortingState: function () {
+            var oTable = this.byId("idRequestTable");
+            var aColumns = oTable.getColumns();
+            for (var i = 0; i < aColumns.length; i++) {
+                aColumns[i].setSorted(false);
+            }
         },
 
         /**
-         * CORREGIDO: Cancelar solicitud desde la tabla principal
+        * Actualiza la cantidad de registros de la tabla  
+       **/
+        _updateTableCount: function () {
+            var oTable = this.byId("idRequestTable");
+            var oBinding = oTable.getBinding("rows");
+
+            if (oBinding) {
+                let iFilteredCount = oBinding.getLength();
+                this.getView().getModel("solicitudes").setProperty("/solicitudes/totalCount", iFilteredCount);
+            }
+        },
+
+
+        onVisualizarPress: function (oEvent) {
+            Util.showBI(true);
+            var oContext = oEvent.getSource().getBindingContext("solicitudes");
+            var oSolicitud = oContext.getObject();
+
+            this._oDinamicFields.showDynamicDetailView(oSolicitud.externalCode);
+        },
+
+        /**
+         * Cancelar solicitud desde la tabla principal
          */
-        onCancelarPress: function(oEvent) {
-            var oContext = oEvent.getSource().getBindingContext("solicitudes");            
-            var sNombreSol = oContext.getProperty("cust_nombreSol");
-            var sSolicitudId = oContext.getProperty("idSolicitud");
-            
-            var sMessage = "¿Está seguro que desea cancelar la solicitud '" + sNombreSol + "'?";
-            
+        onCancelarPress: function (oEvent) {
+            var oContext = oEvent.getSource().getBindingContext("solicitudes");
+            var oSolicitudCompleta = oContext.getObject();
+            var sSolicitudId = oContext.getProperty("externalCode");
+
+            var sMessage = "¿Está seguro que desea cancelar la solicitud '" + sSolicitudId + "'?";
+
             MessageBox.warning(sMessage, {
                 title: "Confirmar Cancelación",
                 actions: [MessageBox.Action.YES, MessageBox.Action.NO],
                 emphasizedAction: MessageBox.Action.NO,
-                onClose: function(oAction) {
+                onClose: function (oAction) {
                     if (oAction === MessageBox.Action.YES) {
-                        // CORREGIDO: Usar el nombre correcto del campo
                         oContext.getModel().setProperty(oContext.getPath() + "/cust_status", "CANCELADO");
-                        MessageToast.show("Solicitud " + sSolicitudId + " cancelada correctamente");
-                        
+                        this.onChangeStatus(oSolicitudCompleta);
+
+                        Util.onShowMessage("Solicitud " + sSolicitudId + " cancelada correctamente", "toast");
+                      
+                        // Si se quiere consultar de nuevo las solicitudes despues de cancelar se activa la funcion
+                        // this.onGetDM001() 
+
                         // Forzar actualización de la tabla
-                        var oTable = this.byId("solicitudesTable");
+                        var oTable = this.byId("idRequestTable");
                         oTable.getModel("solicitudes").refresh();
                     }
                 }.bind(this)
@@ -371,16 +227,16 @@ sap.ui.define([
          * Esta función será llamada desde DinamicFields
          * Retorna una Promise para manejar la respuesta asíncrona
          */
-        onCancelarSolicitudFromDetail: function(sSolicitudId, sNombreSol) {
+        onCancelarSolicitudFromDetail: function (sSolicitudId, sNombreSol) {
             var that = this;
             var sMessage = "¿Está seguro que desea cancelar la solicitud '" + sNombreSol + "'?";
-            
-            return new Promise(function(resolve, reject) {
+
+            return new Promise(function (resolve, reject) {
                 MessageBox.warning(sMessage, {
                     title: "Confirmar Cancelación",
                     actions: [MessageBox.Action.YES, MessageBox.Action.NO],
                     emphasizedAction: MessageBox.Action.NO,
-                    onClose: function(oAction) {
+                    onClose: function (oAction) {
                         if (oAction === MessageBox.Action.YES) {
                             var bSuccess = that._cancelarSolicitudById(sSolicitudId);
                             resolve(bSuccess); // Devuelve true si se canceló exitosamente
@@ -395,61 +251,93 @@ sap.ui.define([
         /**
          * Cancelar solicitud por ID - función auxiliar
          */
-        _cancelarSolicitudById: function(sSolicitudId) {
+        _cancelarSolicitudById: function (sSolicitudId) {
             var oModel = this.getView().getModel("solicitudes");
             var aSolicitudes = oModel.getProperty("/solicitudes/results");
-            var iIndex = aSolicitudes.findIndex(function(item) {
-                return item.idSolicitud === sSolicitudId;
+            var iIndex = aSolicitudes.findIndex(function (item) {
+                return item.externalCode === sSolicitudId;
             });
-            
+
             if (iIndex >= 0) {
+                var oSolicitudCompleta = aSolicitudes[iIndex];
                 oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "CANCELADO");
-                Util.onShowMessage("Solicitud " + sSolicitudId + " cancelada correctamente", 'toast');
-                
+                Util.onShowMessage("Solicitud " + oSolicitudCompleta.externalCode + " cancelada correctamente", 'toast');
+
+                this.onChangeStatus(oSolicitudCompleta);
                 // Forzar actualización
-                oModel.refresh();
+                oModel.refresh(sSolicitudId);
                 return true;
             }
             return false;
         },
 
-        /**
-         * Fragment handlers
-         */
-        _openDetailFragment: function() {
-            if (!this._pDetailFragment) {
-                this._pDetailFragment = Fragment.load({
-                    id: this.getView().getId(),
-                    name: "com.inetum.missolicitudeslocal.view.fragment.DetailRequest",
-                    controller: this
-                }).then(function(oFragment) {
-                    this.getView().addDependent(oFragment);
-                    return oFragment;
-                }.bind(this));
+        onChangeStatus: async function (oSolicitud) {
+
+            const oModel = this.getOwnerComponent().getModel();
+            var sEntityPath = this._buildEntityPath(oSolicitud.externalCode, oSolicitud.effectiveStartDate);
+
+            try {
+
+                let oDataToUpdate = {
+                    externalCode: oSolicitud.externalCode,
+                    cust_status: "CA",
+                    effectiveStartDate: formatter._formatEffectiveStartDate(oSolicitud.effectiveStartDate),
+                    cust_fechaAct: formatter._formatDateForSAP(new Date()),
+                    cust_indexStep: "0"
+                }
+
+                let { oResult } = await Service.updateDataERP(sEntityPath, oModel, oDataToUpdate);
+                Util.onShowMessage("Solicitud " + oSolicitud.externalCode + " cancelada correctamente", 'toast');
+                
+
+            } catch (error) {
+                Util.onShowMessage("Error " + (error.message || error), 'toast');
+                Util.showBI(false);
+
+            } finally{
+                Util.onShowMessage("Solicitud " + oSolicitud.externalCode + " cancelada correctamente", 'toast');
             }
-            
-            this._pDetailFragment.then(function(oFragment) {
-                oFragment.open();
-            });
+
         },
 
-        onCloseDetailDialog: function() {
-            this._pDetailFragment.then(function(oFragment) {
-                oFragment.close();
-            });
+        _buildEntityPath: function (sExternalCode, sEffectiveStartDate) {
+            // Formatear effectiveStartDate para la URL
+            var sFormattedDate = formatter._formatDateForEntityPath(sEffectiveStartDate);
+
+            // Construir path con clave compuesta
+            var sEntityPath = `/cust_INETUM_SOL_DM_0001(effectiveStartDate=datetime'${sFormattedDate}',externalCode='${sExternalCode}')`;
+
+            return sEntityPath;
         },
 
-        onNuevaSolicitud: function() {
-            Util.onShowMessage("Navegando a Crear Solicitud...", 'toast');
-        },
+        onDetectorAdjunto: function (oEvent) {
+            // Se obtiene el archivo cargado.
+            const oFile = oEvent.getParameter("files")[0];
+            if (!oFile) {
+                return;
+            }
 
-        onRowPress: function(oEvent) {
-            // Manejar click en fila si es necesario
-        },
+            this._nombreArchivo = oFile.name;
+            // Se crea un objeto de tipo FileReader que permite leer el archivo.
+            const oReader = new FileReader();
 
-        onSolicitudPress: function(oEvent) {
-            // Abrir detalles cuando se hace click en el nombre
-            this.onVisualizarPress(oEvent);
+            // Se define la acción a realizar cuando la lectura del archivo sea exitosa.
+            oReader.onload = (e) => {
+                // Se transforma el archivo en base64 y se almacena en una variable del controlador.
+                const sBase64Content = e.target.result.split(",")[1];
+                this._contenidoArchivo = sBase64Content;
+                sap.m.MessageToast.show("Archivo listo para ser guardado.");
+            };
+
+            // Se define la acción en caso de error.
+            oReader.onerror = (e) => {
+                sap.m.MessageToast.show("Error al leer el archivo.");
+            };
+
+            // Se inicia la lectura del archivo.
+            oReader.readAsDataURL(oFile);
         }
+
+
     });
 });

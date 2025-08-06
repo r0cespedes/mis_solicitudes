@@ -24,105 +24,120 @@
           "localUri": "localService/mainService/metadata.xml",
           "odataVersion": "2.0"
         }
-      },
-      "cust_INETUM_SOL_C_0001": {
-        "uri": "/odata/v2/cust_INETUM_SOL_C_0001/",
-        "type": "OData",
-        "settings": {
-          "annotations": [],
-          "localUri": "localService/cust_INETUM_SOL_C_0001/metadata.xml",
-          "odataVersion": "2.0"
+      }
+    },
+    "crossNavigation": {
+      "inbounds": {
+        "idocmon-manage": {
+          "semanticObject": "missolicitudes",
+          "action": "managerequest",
+          "title": "{{flpTitle}}",
+          "subTitle": "{{flpSubtitle}}",
+          "icon": "sap-icon://request",
+          "signature": {
+            "parameters": {},
+            "additionalParameters": "allowed"
+          }
         }
       }
-    }
+    }  
+},
+"sap.ui": {
+  "technology": "UI5",
+  "icons": {
+    "icon": "",
+    "favIcon": "",
+    "phone": "",
+    "phone@2": "",
+    "tablet": "",
+    "tablet@2": ""
   },
-  "sap.ui": {
-    "technology": "UI5",
-    "icons": {
-      "icon": "",
-      "favIcon": "",
-      "phone": "",
-      "phone@2": "",
-      "tablet": "",
-      "tablet@2": ""
-    },
-    "deviceTypes": {
-      "desktop": true,
-      "tablet": true,
-      "phone": true
-    }
-  },
-  "sap.ui5": {
-    "flexEnabled": true,
-    "dependencies": {
-      "minUI5Version": "1.138.0",
-      "libs": {
-        "sap.m": {},
-        "sap.ui.core": {}
-      }
-    },
-    "contentDensities": {
-      "compact": true,
-      "cozy": true
-    },
-    "models": {
-      "i18n": {
-        "type": "sap.ui.model.resource.ResourceModel",
-        "settings": {
-          "bundleName": "com.inetum.missolicitudes.i18n.i18n"
-        }
-      },
-      "": {
-        "dataSource": "mainService",
-        "preload": true,
-        "settings": {}
-      },
-      "cust_INETUM_SOL_C_0001": {
-        "dataSource": "cust_INETUM_SOL_C_0001",
-        "preload": true,
-        "settings": {}
-      }
-    },
-    "resources": {
-      "css": [
-        {
-          "uri": "css/style.css"
-        }
-      ]
-    },
-    "routing": {
-      "config": {
-        "routerClass": "sap.m.routing.Router",
-        "controlAggregation": "pages",
-        "controlId": "app",
-        "transition": "slide",
-        "type": "View",
-        "viewType": "XML",
-        "path": "com.inetum.missolicitudes.view",
-        "async": true,
-        "viewPath": "com.inetum.missolicitudes.view"
-      },
-      "routes": [
-        {
-          "name": "RouteMain",
-          "pattern": ":?query:",
-          "target": [
-            "TargetMain"
-          ]
-        }
-      ],
-      "targets": {
-        "TargetMain": {
-          "id": "Main",
-          "name": "Main"
-        }
-      }
-    },
-    "rootView": {
-      "viewName": "com.inetum.missolicitudes.view.App",
-      "type": "XML",
-      "id": "App",
-      "async": true
-    }
+  "deviceTypes": {
+    "desktop": true,
+    "tablet": true,
+    "phone": true
   }
+},
+"sap.ui5": {
+  "flexEnabled": true,
+  "dependencies": {
+    "minUI5Version": "1.138.0",
+    "libs": {
+      "sap.m": {},
+      "sap.ui.core": {}
+    }
+  },
+  "contentDensities": {
+    "compact": true,
+    "cozy": true
+  },
+  "models": {
+    "i18n": {
+      "type": "sap.ui.model.resource.ResourceModel",
+      "settings": {
+        "bundleName": "com.inetum.missolicitudes.i18n.i18n",
+        "supportedLocales": [
+          "es",
+          "en",
+          ""
+        ],
+        "fallbackLocale": "es"
+      }
+    },
+    "": {
+      "dataSource": "mainService",
+      "preload": true,
+      "settings": {}
+    },
+    "mLocalModel": {
+        "type": "sap.ui.model.json.JSONModel",
+        "uri": "model/localModel.json"
+      }
+  },
+  "resources": {
+    "css": [
+      {
+        "uri": "css/style.css"
+      }
+    ]
+  },
+  "routing": {
+    "config": {
+      "routerClass": "sap.m.routing.Router",
+      "controlAggregation": "pages",
+      "controlId": "app",
+      "transition": "slide",
+      "type": "View",
+      "viewType": "XML",
+      "path": "com.inetum.missolicitudes.view",
+      "async": true,
+      "viewPath": "com.inetum.missolicitudes.view"
+    },
+    "routes": [
+      {
+        "name": "RouteMain",
+        "pattern": ":?query:",
+        "target": [
+          "TargetMain"
+        ]
+      }
+    ],
+    "targets": {
+      "TargetMain": {
+        "id": "Main",
+        "name": "Main"
+      }
+    }
+  },
+  "rootView": {
+    "viewName": "com.inetum.missolicitudes.view.App",
+    "type": "XML",
+    "id": "App",
+    "async": true
+  }
+},
+"sap.cloud": {
+  "public": true,
+  "service": "cominetummissolicitudes"
+}
 }

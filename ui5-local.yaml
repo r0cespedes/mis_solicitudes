@@ -28,7 +28,7 @@ server:
     - name: fiori-tools-proxy
       afterMiddleware: compression
       configuration:
-        ignoreCertError: false # If set to true, certificate errors will be ignored. E.g. self-signed certificates will be accepted
+        ignoreCertError: false
         backend:
           - path: /odata
             url: https://api55.sapsf.eu
@@ -41,9 +41,5 @@ server:
           - urlPath: /odata/v2/cust_INETUM_SOL_C_0000
             metadataPath: ./webapp/localService/mainService/metadata.xml
             mockdataPath: ./webapp/localService/mainService/data
-            generateMockData: true
-          - urlPath: /odata/v2/cust_INETUM_SOL_C_0001
-            metadataPath: ./webapp/localService/cust_INETUM_SOL_C_0001/metadata.xml
-            mockdataPath: ./webapp/localService/cust_INETUM_SOL_C_0001/data
             generateMockData: true
         annotations: []

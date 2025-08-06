@@ -1,0 +1,203 @@
+<!DOCTYPE HTML>
+<html lang="es">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Solicitudes - Test Environment</title>
+
+    <script type="text/javascript">
+        // Configuración forzada antes de cargar FLP
+        window["sap-ushell-config"] = {
+            defaultRenderer: "fiori2",
+            
+            // Configuración específica del usuario LOCAL
+            "sap-ushell-defaultUserInfo": {
+                id: "SFADMIN_RCP",
+                firstName: "Robinson",
+                lastName: "Cespedes",
+                fullName: "Robinson Cespedes",
+                email: "gerardo.cespedes@inetum.com",
+                language: "es"
+            },
+
+            bootstrapPlugins: {
+                "RuntimeAuthoringPlugin": {
+                    component: "sap.ushell.plugins.rta",
+                    config: {
+                        validateAppVersion: false
+                    }
+                }
+            },
+            
+            renderers: {
+                fiori2: {
+                    componentData: {
+                        config: {
+                            search: "hidden",
+                            enableSearch: false
+                        }
+                    }
+                }
+            },
+            
+            services: {
+                "UserInfo": {
+                    adapter: {
+                        module: "sap.ushell.adapters.local.UserInfoAdapter",
+                        config: {
+                            user: {
+                                id: "SFADMIN_RCP",
+                                firstName: "Robinson",
+                                lastName: "Cespedes", 
+                                fullName: "Robinson Cespedes",
+                                email: "gerardo.cespedes@inetum.com",
+                                language: "es",
+                                theme: "sap_horizon",
+                                accessibility: false,
+                                isJamActive: false
+                            }
+                        }
+                    }
+                },
+                
+                "LaunchPage": {
+                    adapter: {
+                        config: {
+                            groups: [{
+                                id: "group_0",
+                                title: "Gestión de Solicitudes",
+                                isPreset: true,
+                                isVisible: true,
+                                isGroupLocked: false,
+                                tiles: [{
+                                    id: "tile_0",
+                                    title: "Mis Solicitudes",
+                                    subtitle: "Gestionar solicitudes personales",
+                                    icon: "sap-icon://request",
+                                    targetURL: "#missolicitudes-display"
+                                }]
+                            }]
+                        }
+                    }
+                },
+                
+                "ClientSideTargetResolution": {
+                    adapter: {
+                        config: {
+                            inbounds: {
+                                "missolicitudes-display": {
+                                    semanticObject: "missolicitudes",
+                                    action: "display",
+                                    title: "Mis Solicitudes",
+                                    signature: {
+                                        parameters: {},
+                                        additionalParameters: "allowed"
+                                    },
+                                    resolutionResult: {
+                                        applicationType: "SAPUI5",
+                                        additionalInformation: "SAPUI5.Component=com.inetum.missolicitudes",
+                                        url: "../"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            
+            applications: {
+                "missolicitudes-display": {
+                    title: "Mis Solicitudes",
+                    description: "Aplicación para gestionar solicitudes personales",
+                    additionalInformation: "SAPUI5.Component=com.inetum.missolicitudes",
+                    applicationType: "URL",
+                    url: "../"
+                }
+            }
+        };
+
+        // Función para forzar configuración de usuario
+        window.forceUserConfig = function() {
+            console.log("Forzando configuración de usuario...");
+            
+            if (sap && sap.ushell && sap.ushell.Container) {
+                try {
+                    // Intentar obtener el servicio y configurarlo manualmente
+                    var oUserInfo = sap.ushell.Container.getService("UserInfo");
+                    
+                    // Si existe el método para establecer configuración, usarlo
+                    if (oUserInfo && typeof oUserInfo._setUser === 'function') {
+                        oUserInfo._setUser({
+                            id: "SFADMIN_RCP",
+                            firstName: "Robinson",
+                            lastName: "Cespedes",
+                            fullName: "Robinson Cespedes",
+                            email: "gerardo.cespedes@inetum.com",
+                            language: "es"
+                        });
+                    }
+                    
+                    console.log("Usuario configurado:", oUserInfo.getId());
+                    
+                } catch (e) {
+                    console.error("Error configurando usuario:", e);
+                }
+            }
+        };
+    </script>
+
+    <script src="../test-resources/sap/ushell/bootstrap/sandbox.js" id="sap-ushell-bootstrap"></script>
+    
+    <script id="sap-ui-bootstrap"
+        src="../resources/sap-ui-core.js"
+        data-sap-ui-libs="sap.m,sap.ui.core,sap.f,sap.suite.ui.generic.template,sap.ui.comp,sap.ui.generic.app,sap.ui.table,sap.ushell,sap.ui.layout"
+        data-sap-ui-async="true"
+        data-sap-ui-preload="async"
+        data-sap-ui-theme="sap_horizon"
+        data-sap-ui-compatVersion="edge"
+        data-sap-ui-language="es"
+        data-sap-ui-resourceroots='{"com.inetum.missolicitudes": "../"}'
+        data-sap-ui-frameOptions="allow">
+    </script>
+    
+    <script id="locate-reuse-libs" src="./locate-reuse-libs.js" data-sap-ui-manifest-uri="../manifest.json">
+    </script>
+
+    <script>
+        // Ejecutar después de que todo esté cargado
+        sap.ui.getCore().attachInit(function() {
+            console.log("=== INICIANDO DEBUG FLP ===");
+            
+            setTimeout(function() {
+                console.log("=== VERIFICANDO CONFIGURACIÓN ===");
+                console.log("Config window:", window["sap-ushell-config"]);
+                
+                // Forzar configuración si es necesario
+                window.forceUserConfig();
+                
+                // Verificar resultado
+                setTimeout(function() {
+                    if (sap.ushell && sap.ushell.Container) {
+                        try {
+                            var oUserInfo = sap.ushell.Container.getService("UserInfo");
+                            console.log("=== RESULTADO FINAL ===");
+                            console.log("ID:", oUserInfo.getId());
+                            console.log("Nombre:", oUserInfo.getFirstName());
+                            console.log("Apellido:", oUserInfo.getLastName());
+                            console.log("Email:", oUserInfo.getEmail());
+                        } catch (e) {
+                            console.error("Error final:", e);
+                        }
+                    }
+                }, 1000);
+                
+            }, 500);
+        });
+    </script>
+</head>
+
+<body class="sapUiBody" id="content">
+</body>
+
+</html>
