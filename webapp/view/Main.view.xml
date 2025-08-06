@@ -34,12 +34,11 @@
                 <content>
                     <!-- Tabla principal de solicitudes -->
                     <table:Table
-                        id="solicitudesTable"
+                        id="idRequestTable"
                         rows="{solicitudes>/solicitudes/results}"
                         selectionMode="None"
                         enableSelectAll="true"
-                        ariaLabelledBy="tableTitle"
-                        rowSelectionChange="onRowSelectionChange"
+                        ariaLabelledBy="tableTitle"                        
                         alternateRowColors="false"
                         columnHeaderVisible="true"
                         enableColumnReordering="true"
@@ -47,6 +46,7 @@
                         threshold="100"                       
                         visibleRowCount="15"
                         enableBusyIndicator="true"
+                        enableCellFilter="true"
                         class="sapUiResponsiveMargin" >
 
                         <table:extension>
@@ -55,16 +55,15 @@
                                     id="searchField"
                                     placeholder="{i18n>searchPlaceholder}"
                                     liveChange="onSearch"
-                                    width="15rem"/>
-                                <Button
-                                    text="{i18n>cleanFilter}"
-                                    tooltip="Clear all sortings"
-                                    icon="sap-icon://clear-filter"
-                                    press=".clearAllSortingsFilters"/>
+                                    value="{mLocalModel>/globalFilter}"
+                                    width="15rem"/>                           
                                 <ToolbarSpacer/>
                                 <Title 
                                     id="recordCount"
-                                    text="{solicitudes>/solicitudes/totalCount} {i18n>totalRecords}" 
+                                    text="{= ${solicitudes>/solicitudes/totalCount} === 1 
+                                            ? ${solicitudes>/solicitudes/totalCount} + ' ' + ${i18n>singleRecord}
+                                            : ${solicitudes>/solicitudes/totalCount} + ' ' + ${i18n>totalRecords}
+                                          }"
                                     titleStyle="H5"/>
                             </OverflowToolbar>
                         </table:extension>                          
@@ -75,7 +74,7 @@
                             <table:Column
                                 width="30%"
                                 sortProperty="cust_nombreSol"
-                                filterProperty="externalCode"
+                                filterProperty="cust_nombreSol"
                                 showFilterMenuEntry="true"
                                 showSortMenuEntry="true"
                             >
