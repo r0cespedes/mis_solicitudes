@@ -79,12 +79,18 @@ sap.ui.define([
         */
 
         onGetDM001: async function () {
+
+            var oTable = this.byId("idRequestTable");
+            // Antes de la consulta
+            oTable.setBusy(true);
+            oTable.setShowNoData(false);
+
             Util.showBI(true);
 
             try {
                 const oModel = this.getOwnerComponent().getModel();
                 const aFilters = [
-                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name), //this.oCurrentUser.name)
+                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name), //this.oCurrentUser.name -- Usuario actual
                     new Filter("cust_status", FilterOperator.EQ, 'EC')
                 ];
 
@@ -100,10 +106,11 @@ sap.ui.define([
                 // LLamar al servicio
                 const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, aFilters, oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
 
+                // Formateo de fecha y status de solicitud
                 data.results.forEach(item => {
-                    item.cust_status = formatter.formatNameStatus(item.cust_status);                            
+                    item.cust_status = formatter.formatNameStatus(item.cust_status);      
+                    item.cust_fechaSol_Str = formatter.formatDate(item.cust_fechaSol);                      
                 });
-
 
                 const oSolicitudesData = {
                     solicitudes: {
@@ -119,8 +126,13 @@ sap.ui.define([
             } catch (error) {
                 Util.onShowMessage("Error " + (error.message || error), 'toast');
                 Util.showBI(false);
+            } finally {
+                oTable.setBusy(false);
+                oTable.setShowNoData(true);
+                Util.showBI(false);
             }
         },
+        
 
         onSearch: function (oEvent) {
             var sQuery = oEvent.getParameter("newValue") || oEvent.getParameter("query");
@@ -130,7 +142,8 @@ sap.ui.define([
             if (sQuery) {
                 var aFilters = [
                     new sap.ui.model.Filter("cust_nombreSol", sap.ui.model.FilterOperator.Contains, sQuery),
-                    new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery)                   
+                    new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery),
+                    new sap.ui.model.Filter("cust_fechaSol_Str", sap.ui.model.FilterOperator.Contains, sQuery)           
                 ];
                 var oMainFilter = new sap.ui.model.Filter(aFilters, false);
                 oBinding.filter([oMainFilter]);

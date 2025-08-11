@@ -150,7 +150,7 @@ sap.ui.define([
 
             // Página
             var oPage = new Page({
-                title: "Solicitud: " + oSolicitud.externalCode,
+                title: oSolicitud.cust_nombreSol,
                 showNavButton: true,
                 navButtonPress: function () {
                     that._onBackToMain(oDetailView);
@@ -234,7 +234,7 @@ sap.ui.define([
         /**
          * Agregar campos dinámicos (todos los registros del array)
          */
-        _addDynamicFields: function (oForm, aDynamicFields) {
+        _addDynamicFields: async function (oForm, aDynamicFields) {
             let iTotalAttachments = 0;
 
             if (!aDynamicFields || aDynamicFields.length === 0) {
@@ -248,14 +248,29 @@ sap.ui.define([
                 }
             });
 
-            // Mostrar TODOS los registros del array, sin filtrar
-            aDynamicFields.forEach(function (oDynamicField, index) {
-                var sLabel = "Campo " + (index + 1);
-                var sValue = oDynamicField.cust_value || "(Vacío)";
-
+            
+            for (let index = 0; index < aDynamicFields.length; index++) {
+                const oDynamicField = aDynamicFields[index];
+                const sLabel = "Campo " + (index + 1);
+                let sValue = oDynamicField.cust_value || "(Vacío)";
+        
+              
+                if (oDynamicField.cust_fieldtype === "P" && sValue !== "(Vacío)" && sValue.trim() !== "") {
+                    try {
+                        const oModel = this._oController.getOwnerComponent().getModel();
+                        const aFilter = [new Filter("optionId", FilterOperator.EQ, sValue)];
+                        const data = await Service.readDataERP("/PicklistLabel", oModel, aFilter);
+                        
+                        if (data?.data?.results?.length) {
+                            sValue = data.data.results[0].label || sValue;
+                        }
+                    } catch (error) {
+                        console.error("Error cargando picklist label:", error);                      
+                    }
+                }
+        
                 this._addField(oForm, sLabel, sValue, oDynamicField.cust_fieldtype, oDynamicField.cust_value);
-
-            }.bind(this));
+            }
 
             if (iTotalAttachments === 0) Util.showBI(false);            
 
@@ -284,7 +299,7 @@ sap.ui.define([
 
             switch (String(sTipyField)) {
                 case "P":
-                    oField = this._createInputField(sFieldId, sDisplayValue);
+                    oField = this._createPicklistField(sFieldId, sDisplayValue);
                     break;
                 case "F":
                     oField = this._createDateField(sFieldId, sDisplayValue);
@@ -307,6 +322,17 @@ sap.ui.define([
             oForm.addContent(oLabel);
             oForm.addContent(oField);
             
+        },
+
+        _createPicklistField: function (sFieldId, sDisplayValue) {
+            const oInput = new Input({
+                id: sFieldId,
+                value: sDisplayValue,
+                editable: false,
+                enabled: true
+            });
+            
+            return oInput;
         },
 
         _createInputField: function (sFieldId, sDisplayValue) {
