@@ -21,13 +21,9 @@ sap.ui.define([
             // Modelo para el diálogo de detalles
             var oDetailModel = new JSONModel({});
             this.getView().setModel(oDetailModel, "detailDialog");
-
-            var sLanguage = sap.ui.getCore().getConfiguration().getLanguage();
-            console.log("Idioma UI5:", sLanguage);
-
             this.loadCurrentUser();
 
-            // this.oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
+            this.oResourceBundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
             // Util.onShowMessage(oResourceBundle.getText("message"), "error");
 
             //Pasar la referencia del controlador
@@ -81,10 +77,7 @@ sap.ui.define([
         onGetDM001: async function () {
 
             var oTable = this.byId("idRequestTable");
-            // Antes de la consulta
-            oTable.setBusy(true);
             oTable.setShowNoData(false);
-
             Util.showBI(true);
 
             try {
@@ -98,8 +91,7 @@ sap.ui.define([
                 const oParam = {
                     bParam: true,
                     oParameter: {
-                        "$expand": "cust_steps,cust_solFields",
-                        "$format": "json"                        
+                        "$expand": "cust_steps,cust_solFields/cust_fieldtypeNav"                                              
                     }
                 };
 
@@ -132,7 +124,6 @@ sap.ui.define([
                 Util.showBI(false);
             }
         },
-        
 
         onSearch: function (oEvent) {
             var sQuery = oEvent.getParameter("newValue") || oEvent.getParameter("query");
@@ -209,9 +200,8 @@ sap.ui.define([
         onCancelarPress: function (oEvent) {
             var oContext = oEvent.getSource().getBindingContext("solicitudes");
             var oSolicitudCompleta = oContext.getObject();
-            var sSolicitudId = oContext.getProperty("externalCode");
-
-            var sMessage = "¿Está seguro que desea cancelar la solicitud '" + sSolicitudId + "'?";
+            var sSolicitudId = oContext.getProperty("cust_nombreSol");
+            var sMessage = this.oResourceBundle.getText("cancelRequestConfirmation", [sSolicitudId])
 
             MessageBox.warning(sMessage, {
                 title: "Confirmar Cancelación",
@@ -222,7 +212,7 @@ sap.ui.define([
                         oContext.getModel().setProperty(oContext.getPath() + "/cust_status", "CANCELADO");
                         this.onChangeStatus(oSolicitudCompleta);
 
-                        Util.onShowMessage("Solicitud " + sSolicitudId + " cancelada correctamente", "toast");
+                       Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [sSolicitudId]), "toast");
                       
                         // Si se quiere consultar de nuevo las solicitudes despues de cancelar se activa la funcion
                         // this.onGetDM001() 
@@ -240,9 +230,9 @@ sap.ui.define([
          * Esta función será llamada desde DinamicFields
          * Retorna una Promise para manejar la respuesta asíncrona
          */
-        onCancelarSolicitudFromDetail: function (sSolicitudId, sNombreSol) {
-            var that = this;
-            var sMessage = "¿Está seguro que desea cancelar la solicitud '" + sNombreSol + "'?";
+        onCancelarSolicitudFromDetail: function (sNombreSol, sSolicitudId) {
+            var that = this;            
+            var sMessage = this.oResourceBundle.getText("cancelRequestConfirmation", [sNombreSol])
 
             return new Promise(function (resolve, reject) {
                 MessageBox.warning(sMessage, {
@@ -273,8 +263,8 @@ sap.ui.define([
 
             if (iIndex >= 0) {
                 var oSolicitudCompleta = aSolicitudes[iIndex];
-                oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "CANCELADO");
-                Util.onShowMessage("Solicitud " + oSolicitudCompleta.externalCode + " cancelada correctamente", 'toast');
+                oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "CANCELADO");            
+                Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitudCompleta.cust_nombreSol]), "toast");
 
                 this.onChangeStatus(oSolicitudCompleta);
                 // Forzar actualización
@@ -299,16 +289,15 @@ sap.ui.define([
                     cust_indexStep: "0"
                 }
 
-                let { oResult } = await Service.updateDataERP(sEntityPath, oModel, oDataToUpdate);
-                Util.onShowMessage("Solicitud " + oSolicitud.externalCode + " cancelada correctamente", 'toast');
-                
+                let { oResult } = await Service.updateDataERP(sEntityPath, oModel, oDataToUpdate);                
+                Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitud.cust_nombreSol]), "toast");
 
             } catch (error) {
                 Util.onShowMessage("Error " + (error.message || error), 'toast');
                 Util.showBI(false);
 
             } finally{
-                Util.onShowMessage("Solicitud " + oSolicitud.externalCode + " cancelada correctamente", 'toast');
+                Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitud.cust_nombreSol]), "toast");
             }
 
         },
@@ -339,7 +328,7 @@ sap.ui.define([
                 // Se transforma el archivo en base64 y se almacena en una variable del controlador.
                 const sBase64Content = e.target.result.split(",")[1];
                 this._contenidoArchivo = sBase64Content;
-                sap.m.MessageToast.show("Archivo listo para ser guardado.");
+                sap.m.MessageToast.show(this.oResourceBundle.getText("Archivo listo para ser guardado."));
             };
 
             // Se define la acción en caso de error.

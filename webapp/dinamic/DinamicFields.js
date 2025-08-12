@@ -19,8 +19,30 @@ sap.ui.define([
     "../service/Service",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "../Utils/Util"
-], function (BaseObject, formatter, View, Page, Label, Input, DatePicker, TextArea, UploadCollection, SimpleForm, MessageToast, Button, Toolbar, ToolbarSpacer, ScrollContainer, Panel, Grid, Service, Filter, FilterOperator, Util) {
+    "../Utils/Util",
+    "../Utils/Lenguaje"
+], function (BaseObject, 
+            formatter, 
+            View, 
+            Page, 
+            Label, 
+            Input, 
+            DatePicker, 
+            TextArea, 
+            UploadCollection, 
+            SimpleForm, 
+            MessageToast, 
+            Button, 
+            Toolbar, 
+            ToolbarSpacer, 
+            ScrollContainer, 
+            Panel, 
+            Grid, 
+            Service, 
+            Filter, 
+            FilterOperator, 
+            Util,
+            Lenguaje) {
     "use strict";
 
     return BaseObject.extend("com.inetum.missolicitudes.dinamic.DinamicFields", {
@@ -171,7 +193,7 @@ sap.ui.define([
         /**
          * Crear Panel que contiene el formulario
          */
-        _createPanelWithForm: function (oForm, oSolicitud) {
+        _createPanelWithForm: function (oForm) {
             var oPanel = new Panel({
                 headerText: "Detalles de la Solicitud",
                 expandable: false,
@@ -251,9 +273,9 @@ sap.ui.define([
             
             for (let index = 0; index < aDynamicFields.length; index++) {
                 const oDynamicField = aDynamicFields[index];
-                const sLabel = "Campo " + (index + 1);
-                let sValue = oDynamicField.cust_value || "(Vacío)";
-        
+                // const sLabel = "Campo " + (index + 1);
+                const sLabel = Lenguaje.obtenerNombreConcatenado("cust_etiquetaInput");
+                let sValue = oDynamicField.cust_value || "(Vacío)";        
               
                 if (oDynamicField.cust_fieldtype === "P" && sValue !== "(Vacío)" && sValue.trim() !== "") {
                     try {
@@ -436,16 +458,13 @@ sap.ui.define([
             var that = this;
 
             if (this._oController && this._oController.onCancelarSolicitudFromDetail) {
-                this._oController.onCancelarSolicitudFromDetail(
-                    oSolicitudData.idSolicitud || oSolicitudData.externalCode,
-                    oSolicitudData.cust_nombreSol || oSolicitudData.externalCode
+                this._oController.onCancelarSolicitudFromDetail(                    
+                    oSolicitudData.cust_nombreSol, oSolicitudData.externalCode
                 ).then(function (bWasCancelled) {
                     if (bWasCancelled) {
                         setTimeout(function () {
                             that._onBackToMain(oDetailView);
                         }, 500);
-                    } else {
-                        MessageToast.show("Operación cancelada.");
                     }
                 }).catch(function (error) {
                     MessageToast.show("Error al procesar la cancelación: " + error);
