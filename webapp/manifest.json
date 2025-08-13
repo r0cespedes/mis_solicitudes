@@ -79,6 +79,7 @@
         "supportedLocales": [
           "es",
           "en",
+          "ca",
           ""
         ],
         "fallbackLocale": "es"

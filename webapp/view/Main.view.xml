@@ -228,8 +228,8 @@
                             </table:columns>
                             <table:noData>
                                 <IllustratedMessage
-                                    title="No se encontraron datos."
-                                    description="No tiene solicitudes asignadas."
+                                    title="{i18n>noDataFound}"
+                                    description="{i18n>noRequestsAssigned}"
                                     illustrationType="sapIllus-NoEntries"
                                     enableVerticalResponsiveness="true"
                                 />
