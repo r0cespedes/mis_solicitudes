@@ -5,7 +5,7 @@
     xmlns:m="sap.m"
     xmlns:core="sap.ui.core"
     xmlns:table="sap.ui.table"
-    xmlns:html="http://www.w3.org/1999/xhtml"
+    xmlns:rm="sap.ui.table.rowmodes"
     height="100%"
 >
     <Page
@@ -29,15 +29,15 @@
         </customHeader>
 
         <content>
-            <VBox
+            <!-- <VBox
                 class="sapUiMediumMargin"
                 alignItems="Center"
-            >
+            > -->
                 <Panel
                     class="sapUiMediumMarginBottom"
                     headerText=""
                 >
-                    <content>
+                    <!-- <content> -->
                         <!-- Tabla principal de solicitudes -->
                         <table:Table
                             id="idRequestTable"
@@ -51,11 +51,20 @@
                             showNoData="false"
                             busyIndicatorDelay="0"
                             threshold="100"
-                            visibleRowCount="12"
+                            
                             enableBusyIndicator="true"
                             enableCellFilter="true"
                             class="sapUiResponsiveMargin"
                         >
+
+                        <table:rowMode>
+                            <rm:Interactive
+                                id="_IDGenInteractive"
+                                rowCount="12"
+                                minRowCount="5"
+                            />
+                        </table:rowMode>
+
                             <table:extension>
                                 <OverflowToolbar style="Clear">
                                     <SearchField
@@ -235,9 +244,9 @@
                                 />
                             </table:noData>
                         </table:Table>
-                    </content>
+                    <!-- </content> -->
                 </Panel>
-            </VBox>
+            <!-- </VBox> -->
         </content>
     </Page>
 </mvc:View>

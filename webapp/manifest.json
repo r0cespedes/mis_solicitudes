@@ -40,105 +40,107 @@
           }
         }
       }
-    }  
-},
-"sap.ui": {
-  "technology": "UI5",
-  "icons": {
-    "icon": "",
-    "favIcon": "",
-    "phone": "",
-    "phone@2": "",
-    "tablet": "",
-    "tablet@2": ""
-  },
-  "deviceTypes": {
-    "desktop": true,
-    "tablet": true,
-    "phone": true
-  }
-},
-"sap.ui5": {
-  "flexEnabled": true,
-  "dependencies": {
-    "minUI5Version": "1.138.0",
-    "libs": {
-      "sap.m": {},
-      "sap.ui.core": {}
     }
   },
-  "contentDensities": {
-    "compact": true,
-    "cozy": true
+  "sap.ui": {
+    "technology": "UI5",
+    "icons": {
+      "icon": "",
+      "favIcon": "",
+      "phone": "",
+      "phone@2": "",
+      "tablet": "",
+      "tablet@2": ""
+    },
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": true
+    }
   },
-  "models": {
-    "i18n": {
-      "type": "sap.ui.model.resource.ResourceModel",
-      "settings": {
-        "bundleName": "com.inetum.missolicitudes.i18n.i18n",
-        "supportedLocales": [
-          "es",
-          "en",
-          "ca",
-          ""
-        ],
-        "fallbackLocale": "es"
+  "sap.ui5": {
+    "flexEnabled": true,
+    "dependencies": {
+      "minUI5Version": "1.138.0",
+      "libs": {
+        "sap.m": {},
+        "sap.ui.core": {},
+        "sap.ui.table": {},
+        "sap.ui.layout": {}
       }
     },
-    "": {
-      "dataSource": "mainService",
-      "preload": true,
-      "settings": {}
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
     },
-    "mLocalModel": {
+    "models": {
+      "i18n": {
+        "type": "sap.ui.model.resource.ResourceModel",
+        "settings": {
+          "bundleName": "com.inetum.missolicitudes.i18n.i18n",
+          "supportedLocales": [
+            "es",
+            "en",
+            "ca",
+            ""
+          ],
+          "fallbackLocale": "es"
+        }
+      },
+      "": {
+        "dataSource": "mainService",
+        "preload": true,
+        "settings": {}
+      },
+      "mLocalModel": {
         "type": "sap.ui.model.json.JSONModel",
         "uri": "model/localModel.json"
       }
-  },
-  "resources": {
-    "css": [
-      {
-        "uri": "css/style.css"
-      }
-    ]
-  },
-  "routing": {
-    "config": {
-      "routerClass": "sap.m.routing.Router",
-      "controlAggregation": "pages",
-      "controlId": "app",
-      "transition": "slide",
-      "type": "View",
-      "viewType": "XML",
-      "path": "com.inetum.missolicitudes.view",
-      "async": true,
-      "viewPath": "com.inetum.missolicitudes.view"
     },
-    "routes": [
-      {
-        "name": "RouteMain",
-        "pattern": ":?query:",
-        "target": [
-          "TargetMain"
-        ]
+    "resources": {
+      "css": [
+        {
+          "uri": "css/style.css"
+        }
+      ]
+    },
+    "routing": {
+      "config": {
+        "routerClass": "sap.m.routing.Router",
+        "controlAggregation": "pages",
+        "controlId": "app",
+        "transition": "slide",
+        "type": "View",
+        "viewType": "XML",
+        "path": "com.inetum.missolicitudes.view",
+        "async": true,
+        "viewPath": "com.inetum.missolicitudes.view"
+      },
+      "routes": [
+        {
+          "name": "RouteMain",
+          "pattern": ":?query:",
+          "target": [
+            "TargetMain"
+          ]
+        }
+      ],
+      "targets": {
+        "TargetMain": {
+          "id": "Main",
+          "name": "Main"
+        }
       }
-    ],
-    "targets": {
-      "TargetMain": {
-        "id": "Main",
-        "name": "Main"
-      }
+    },
+    "rootView": {
+      "viewName": "com.inetum.missolicitudes.view.App",
+      "type": "XML",
+      "id": "App",
+      "async": true
     }
   },
-  "rootView": {
-    "viewName": "com.inetum.missolicitudes.view.App",
-    "type": "XML",
-    "id": "App",
-    "async": true
+  "sap.cloud": {
+    "public": true,
+    "service": "cominetummissolicitudes"
   }
-},
-"sap.cloud": {
-  "public": true,
-  "service": "cominetummissolicitudes"
-}
 }
