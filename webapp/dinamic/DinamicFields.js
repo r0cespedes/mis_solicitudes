@@ -127,6 +127,8 @@ sap.ui.define([
         _createDetailView: function (oSolicitud, aDynamicFields) {
             var that = this;
 
+            this._updateResourceBundle();
+
             // Crear formulario simple
             var oForm = this._createSimpleForm(oSolicitud, aDynamicFields);
 
@@ -145,7 +147,7 @@ sap.ui.define([
             });
 
             var oCancelRequestButton = new Button({
-                text: "Cancelar Solicitud",
+                text: this.oResourceBundle.getText("cancelRequest"),
                 type: "Reject",
                 visible: oSolicitud.cust_status === "EN_CURSO",
                 press: function () {
@@ -155,7 +157,7 @@ sap.ui.define([
 
             // Botones del footer
             var oCloseButton = new Button({
-                text: "Cerrar",
+                text: this.oResourceBundle.getText("close"),
                 type: "Emphasized",
                 press: function () {
                     that._onBackToMain(oDetailView);
@@ -190,12 +192,23 @@ sap.ui.define([
             return oDetailView;
         },
 
+        _updateResourceBundle: function() {
+            try {
+                var oI18nModel = this._oController.getOwnerComponent().getModel("i18n");
+                if (oI18nModel) {
+                    this.oResourceBundle = oI18nModel.getResourceBundle();
+                }
+            } catch (error) {
+                console.error("Error actualizando ResourceBundle:", error);
+            }
+        },
+
         /**
          * Crear Panel que contiene el formulario
          */
         _createPanelWithForm: function (oForm) {
             var oPanel = new Panel({
-                headerText: "Detalles de la Solicitud",
+                headerText: this.oResourceBundle.getText("requestDetails"), // this.oResourceBundle.getText("requestDetails")
                 expandable: false,
                 expanded: false,
                 backgroundDesign: "Translucent",
@@ -424,7 +437,7 @@ sap.ui.define([
                 url: this._crearDataURI(attachment.mimeType, attachment.fileContent),
                 attributes: [
                     new sap.m.ObjectAttribute({
-                        title: "Descargar",
+                        title: this.oResourceBundle.getText("download"),
                         text: attachment.fileName,
                         active: true
                     })

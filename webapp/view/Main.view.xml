@@ -60,7 +60,7 @@
                         <table:rowMode>
                             <rm:Interactive
                                 id="_IDGenInteractive"
-                                rowCount="12"
+                                rowCount="15"
                                 minRowCount="5"
                             />
                         </table:rowMode>

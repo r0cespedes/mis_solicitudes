@@ -1,7 +1,10 @@
 sap.ui.define([
     "sap/ui/core/UIComponent",
-    "com/inetum/missolicitudes/model/models"
-], (UIComponent, models) => {
+    "sap/ui/model/json/JSONModel", 
+    "sap/ui/thirdparty/jquery",
+    "com/inetum/missolicitudes/model/models",
+    
+], (UIComponent, JSONModel, $, models) => {
     "use strict";
 
     return UIComponent.extend("com.inetum.missolicitudes.Component", {
