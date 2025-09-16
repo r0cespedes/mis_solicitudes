@@ -76,6 +76,7 @@
     "models": {
       "i18n": {
         "type": "sap.ui.model.resource.ResourceModel",
+        "preload": true,
         "settings": {
           "bundleName": "com.inetum.missolicitudes.i18n.i18n",
           "supportedLocales": [

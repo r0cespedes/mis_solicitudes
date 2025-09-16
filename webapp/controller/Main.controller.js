@@ -17,16 +17,8 @@ sap.ui.define([
 
         onInit: function () {
 
-
-            // Modelo para el diálogo de detalles
-            var oDetailModel = new JSONModel({});
-            this.getView().setModel(oDetailModel, "detailDialog");
             this.loadCurrentUser();
-            //  this.oCurrentUser = sap.ui.getCore().getModel("oModelUser").getData()[0];
-
             this.oResourceBundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
-            // Util.onShowMessage(oResourceBundle.getText("message"), "error");
-
             //Pasar la referencia del controlador
             this._oDinamicFields = new DinamicFields(this);
         },
@@ -80,7 +72,7 @@ sap.ui.define([
             var mParameters = {            
                 success: function (oData) {                
                     var sUserLanguage = oData.defaultLocale;                                  
-                    that._aplicarIdiomaUI5(sUserLanguage);
+                    that._applyLanguageUI5(sUserLanguage);
                 },        
             
                 error: function (oError) {
@@ -102,7 +94,7 @@ sap.ui.define([
             oModel.read(sEntityPath, mParameters);
         },
 
-        _aplicarIdiomaUI5: function (sIdiomaSuccessFactors) {
+        _applyLanguageUI5: function (sIdiomaSuccessFactors) {
 
             var mMapeoIdiomas = {
                 "ca_ES": "ca",     // Catalán
