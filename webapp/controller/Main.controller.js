@@ -17,19 +17,8 @@ sap.ui.define([
 
         onInit: function () {
 
-
-            // Modelo para el diálogo de detalles
-            var oDetailModel = new JSONModel({});
-            this.getView().setModel(oDetailModel, "detailDialog");
-
-            var sLanguage = sap.ui.getCore().getConfiguration().getLanguage();
-            console.log("Idioma UI5:", sLanguage);
-
             this.loadCurrentUser();
-
-            // this.oResourceBundle = this.getView().getModel("i18n").getResourceBundle();
-            // Util.onShowMessage(oResourceBundle.getText("message"), "error");
-
+            this.oResourceBundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
             //Pasar la referencia del controlador
             this._oDinamicFields = new DinamicFields(this);
         },
@@ -44,6 +33,7 @@ sap.ui.define([
                 async: true,
                 success: function (data) {
                     that._setUserModel(data);
+                    that._getUserLanguage(data.name);
                 },
                 error: function (jqXHR, textStatus, errorThrown) {
                     console.error("Error obteniendo usuario:", jqXHR.status, jqXHR.responseText);
@@ -74,17 +64,70 @@ sap.ui.define([
             this.onGetDM001();
         },
 
+        _getUserLanguage: function (sUserName) {
+            var that = this;    
+            var oModel = this.getOwnerComponent().getModel();    
+            var sEntityPath = "/User('" + sUserName + "')";    
+        
+            var mParameters = {            
+                success: function (oData) {                
+                    var sUserLanguage = oData.defaultLocale;                                  
+                    that._applyLanguageUI5(sUserLanguage);
+                },        
+            
+                error: function (oError) {
+                    console.warn("Error obteniendo idioma del usuario:", oError);
+                    console.warn("Detalles del error:", oError.message || oError);        
+                },        
+            
+                headers: {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                },        
+        
+                async: true,
+                urlParameters: {
+                    "$format": "json"
+                }
+            };    
+
+            oModel.read(sEntityPath, mParameters);
+        },
+
+        _applyLanguageUI5: function (sIdiomaSuccessFactors) {
+
+            var mMapeoIdiomas = {
+                "ca_ES": "ca",     // Catalán
+                "en_DEBUG": "en",  // English Debug -> English
+                "en_US": "en",     // English US
+                "es_ES": "es"      // Español
+            };
+          
+            var sIdiomaUI5 = mMapeoIdiomas[sIdiomaSuccessFactors];
+
+            if (!sIdiomaUI5) {
+                console.warn("Idioma no soportado:", sIdiomaSuccessFactors, "- Usando inglés por defecto");
+                sIdiomaUI5 = "en";
+            }
+           
+            sap.ui.getCore().getConfiguration().setLanguage(sIdiomaUI5);      
+
+        },
+
         /**
         * Con la entidad cust_INETUM_SOL_DM_0002 y expand createdByNav recupero nombre usuario, correo, Id
         */
 
         onGetDM001: async function () {
+
+            var oTable = this.byId("idRequestTable");
+            oTable.setShowNoData(false);
             Util.showBI(true);
 
             try {
                 const oModel = this.getOwnerComponent().getModel();
                 const aFilters = [
-                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name), //this.oCurrentUser.name)
+                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name), //this.oCurrentUser.name -- Usuario actual
                     new Filter("cust_status", FilterOperator.EQ, 'EC')
                 ];
 
@@ -92,18 +135,18 @@ sap.ui.define([
                 const oParam = {
                     bParam: true,
                     oParameter: {
-                        "$expand": "cust_steps,cust_solFields",
-                        "$format": "json"                        
+                        "$expand": "cust_steps,cust_solFields/cust_fieldtypeNav"
                     }
                 };
 
                 // LLamar al servicio
                 const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, aFilters, oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
 
+                // Formateo de fecha y status de solicitud
                 data.results.forEach(item => {
-                    item.cust_status = formatter.formatNameStatus(item.cust_status);                            
+                    item.cust_status = formatter.formatNameStatus(item.cust_status);
+                    item.cust_fechaSol_Str = formatter.formatDate(item.cust_fechaSol);
                 });
-
 
                 const oSolicitudesData = {
                     solicitudes: {
@@ -119,6 +162,10 @@ sap.ui.define([
             } catch (error) {
                 Util.onShowMessage("Error " + (error.message || error), 'toast');
                 Util.showBI(false);
+            } finally {
+                oTable.setBusy(false);
+                oTable.setShowNoData(true);
+                Util.showBI(false);
             }
         },
 
@@ -130,7 +177,8 @@ sap.ui.define([
             if (sQuery) {
                 var aFilters = [
                     new sap.ui.model.Filter("cust_nombreSol", sap.ui.model.FilterOperator.Contains, sQuery),
-                    new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery)                   
+                    new sap.ui.model.Filter("cust_nombreTSol", sap.ui.model.FilterOperator.Contains, sQuery),
+                    new sap.ui.model.Filter("cust_fechaSol_Str", sap.ui.model.FilterOperator.Contains, sQuery)
                 ];
                 var oMainFilter = new sap.ui.model.Filter(aFilters, false);
                 oBinding.filter([oMainFilter]);
@@ -196,9 +244,8 @@ sap.ui.define([
         onCancelarPress: function (oEvent) {
             var oContext = oEvent.getSource().getBindingContext("solicitudes");
             var oSolicitudCompleta = oContext.getObject();
-            var sSolicitudId = oContext.getProperty("externalCode");
-
-            var sMessage = "¿Está seguro que desea cancelar la solicitud '" + sSolicitudId + "'?";
+            var sSolicitudId = oContext.getProperty("cust_nombreSol");
+            var sMessage = this.oResourceBundle.getText("cancelRequestConfirmation", [sSolicitudId])
 
             MessageBox.warning(sMessage, {
                 title: "Confirmar Cancelación",
@@ -209,8 +256,8 @@ sap.ui.define([
                         oContext.getModel().setProperty(oContext.getPath() + "/cust_status", "CANCELADO");
                         this.onChangeStatus(oSolicitudCompleta);
 
-                        Util.onShowMessage("Solicitud " + sSolicitudId + " cancelada correctamente", "toast");
-                      
+                        Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [sSolicitudId]), "toast");
+
                         // Si se quiere consultar de nuevo las solicitudes despues de cancelar se activa la funcion
                         // this.onGetDM001() 
 
@@ -227,9 +274,9 @@ sap.ui.define([
          * Esta función será llamada desde DinamicFields
          * Retorna una Promise para manejar la respuesta asíncrona
          */
-        onCancelarSolicitudFromDetail: function (sSolicitudId, sNombreSol) {
+        onCancelarSolicitudFromDetail: function (sNombreSol, sSolicitudId) {
             var that = this;
-            var sMessage = "¿Está seguro que desea cancelar la solicitud '" + sNombreSol + "'?";
+            var sMessage = this.oResourceBundle.getText("cancelRequestConfirmation", [sNombreSol])
 
             return new Promise(function (resolve, reject) {
                 MessageBox.warning(sMessage, {
@@ -261,7 +308,7 @@ sap.ui.define([
             if (iIndex >= 0) {
                 var oSolicitudCompleta = aSolicitudes[iIndex];
                 oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "CANCELADO");
-                Util.onShowMessage("Solicitud " + oSolicitudCompleta.externalCode + " cancelada correctamente", 'toast');
+                Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitudCompleta.cust_nombreSol]), "toast");
 
                 this.onChangeStatus(oSolicitudCompleta);
                 // Forzar actualización
@@ -287,15 +334,14 @@ sap.ui.define([
                 }
 
                 let { oResult } = await Service.updateDataERP(sEntityPath, oModel, oDataToUpdate);
-                Util.onShowMessage("Solicitud " + oSolicitud.externalCode + " cancelada correctamente", 'toast');
-                
+                Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitud.cust_nombreSol]), "toast");
 
             } catch (error) {
                 Util.onShowMessage("Error " + (error.message || error), 'toast');
                 Util.showBI(false);
 
-            } finally{
-                Util.onShowMessage("Solicitud " + oSolicitud.externalCode + " cancelada correctamente", 'toast');
+            } finally {
+                Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitud.cust_nombreSol]), "toast");
             }
 
         },
@@ -326,7 +372,7 @@ sap.ui.define([
                 // Se transforma el archivo en base64 y se almacena en una variable del controlador.
                 const sBase64Content = e.target.result.split(",")[1];
                 this._contenidoArchivo = sBase64Content;
-                sap.m.MessageToast.show("Archivo listo para ser guardado.");
+                sap.m.MessageToast.show(this.oResourceBundle.getText("Archivo listo para ser guardado."));
             };
 
             // Se define la acción en caso de error.

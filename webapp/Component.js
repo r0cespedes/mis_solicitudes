@@ -1,7 +1,10 @@
 sap.ui.define([
     "sap/ui/core/UIComponent",
-    "com/inetum/missolicitudes/model/models"
-], (UIComponent, models) => {
+    "sap/ui/model/json/JSONModel", 
+    "sap/ui/thirdparty/jquery",
+    "com/inetum/missolicitudes/model/models",
+    
+], (UIComponent, JSONModel, $, models) => {
     "use strict";
 
     return UIComponent.extend("com.inetum.missolicitudes.Component", {
@@ -9,8 +12,9 @@ sap.ui.define([
             manifest: "json",
             interfaces: [
                 "sap.ui.core.IAsyncContentCreation"
-            ],config: {
-                fullWidth: false
+            ]
+            ,config: {
+                fullWidth: true
             },
         },
 

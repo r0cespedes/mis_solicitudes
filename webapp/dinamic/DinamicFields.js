@@ -19,8 +19,30 @@ sap.ui.define([
     "../service/Service",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
-    "../Utils/Util"
-], function (BaseObject, formatter, View, Page, Label, Input, DatePicker, TextArea, UploadCollection, SimpleForm, MessageToast, Button, Toolbar, ToolbarSpacer, ScrollContainer, Panel, Grid, Service, Filter, FilterOperator, Util) {
+    "../Utils/Util",
+    "../Utils/Lenguaje"
+], function (BaseObject, 
+            formatter, 
+            View, 
+            Page, 
+            Label, 
+            Input, 
+            DatePicker, 
+            TextArea, 
+            UploadCollection, 
+            SimpleForm, 
+            MessageToast, 
+            Button, 
+            Toolbar, 
+            ToolbarSpacer, 
+            ScrollContainer, 
+            Panel, 
+            Grid, 
+            Service, 
+            Filter, 
+            FilterOperator, 
+            Util,
+            Lenguaje) {
     "use strict";
 
     return BaseObject.extend("com.inetum.missolicitudes.dinamic.DinamicFields", {
@@ -105,6 +127,8 @@ sap.ui.define([
         _createDetailView: function (oSolicitud, aDynamicFields) {
             var that = this;
 
+            this._updateResourceBundle();
+
             // Crear formulario simple
             var oForm = this._createSimpleForm(oSolicitud, aDynamicFields);
 
@@ -123,7 +147,7 @@ sap.ui.define([
             });
 
             var oCancelRequestButton = new Button({
-                text: "Cancelar Solicitud",
+                text: this.oResourceBundle.getText("cancelRequest"),
                 type: "Reject",
                 visible: oSolicitud.cust_status === "EN_CURSO",
                 press: function () {
@@ -133,7 +157,7 @@ sap.ui.define([
 
             // Botones del footer
             var oCloseButton = new Button({
-                text: "Cerrar",
+                text: this.oResourceBundle.getText("close"),
                 type: "Emphasized",
                 press: function () {
                     that._onBackToMain(oDetailView);
@@ -150,7 +174,7 @@ sap.ui.define([
 
             // Página
             var oPage = new Page({
-                title: "Solicitud: " + oSolicitud.externalCode,
+                title: oSolicitud.cust_nombreSol,
                 showNavButton: true,
                 navButtonPress: function () {
                     that._onBackToMain(oDetailView);
@@ -168,12 +192,23 @@ sap.ui.define([
             return oDetailView;
         },
 
+        _updateResourceBundle: function() {
+            try {
+                var oI18nModel = this._oController.getOwnerComponent().getModel("i18n");
+                if (oI18nModel) {
+                    this.oResourceBundle = oI18nModel.getResourceBundle();
+                }
+            } catch (error) {
+                console.error("Error actualizando ResourceBundle:", error);
+            }
+        },
+
         /**
          * Crear Panel que contiene el formulario
          */
-        _createPanelWithForm: function (oForm, oSolicitud) {
+        _createPanelWithForm: function (oForm) {
             var oPanel = new Panel({
-                headerText: "Detalles de la Solicitud",
+                headerText: this.oResourceBundle.getText("requestDetails"), // this.oResourceBundle.getText("requestDetails")
                 expandable: false,
                 expanded: false,
                 backgroundDesign: "Translucent",
@@ -234,7 +269,7 @@ sap.ui.define([
         /**
          * Agregar campos dinámicos (todos los registros del array)
          */
-        _addDynamicFields: function (oForm, aDynamicFields) {
+        _addDynamicFields: async function (oForm, aDynamicFields) {
             let iTotalAttachments = 0;
 
             if (!aDynamicFields || aDynamicFields.length === 0) {
@@ -248,14 +283,29 @@ sap.ui.define([
                 }
             });
 
-            // Mostrar TODOS los registros del array, sin filtrar
-            aDynamicFields.forEach(function (oDynamicField, index) {
-                var sLabel = "Campo " + (index + 1);
-                var sValue = oDynamicField.cust_value || "(Vacío)";
-
+            
+            for (let index = 0; index < aDynamicFields.length; index++) {
+                const oDynamicField = aDynamicFields[index];
+                // const sLabel = "Campo " + (index + 1);
+                const sLabel = Lenguaje.obtenerNombreConcatenado("cust_etiquetaInput");
+                let sValue = oDynamicField.cust_value || "(Vacío)";        
+              
+                if (oDynamicField.cust_fieldtype === "P" && sValue !== "(Vacío)" && sValue.trim() !== "") {
+                    try {
+                        const oModel = this._oController.getOwnerComponent().getModel();
+                        const aFilter = [new Filter("optionId", FilterOperator.EQ, sValue)];
+                        const data = await Service.readDataERP("/PicklistLabel", oModel, aFilter);
+                        
+                        if (data?.data?.results?.length) {
+                            sValue = data.data.results[0].label || sValue;
+                        }
+                    } catch (error) {
+                        console.error("Error cargando picklist label:", error);                      
+                    }
+                }
+        
                 this._addField(oForm, sLabel, sValue, oDynamicField.cust_fieldtype, oDynamicField.cust_value);
-
-            }.bind(this));
+            }
 
             if (iTotalAttachments === 0) Util.showBI(false);            
 
@@ -284,7 +334,7 @@ sap.ui.define([
 
             switch (String(sTipyField)) {
                 case "P":
-                    oField = this._createInputField(sFieldId, sDisplayValue);
+                    oField = this._createPicklistField(sFieldId, sDisplayValue);
                     break;
                 case "F":
                     oField = this._createDateField(sFieldId, sDisplayValue);
@@ -307,6 +357,17 @@ sap.ui.define([
             oForm.addContent(oLabel);
             oForm.addContent(oField);
             
+        },
+
+        _createPicklistField: function (sFieldId, sDisplayValue) {
+            const oInput = new Input({
+                id: sFieldId,
+                value: sDisplayValue,
+                editable: false,
+                enabled: true
+            });
+            
+            return oInput;
         },
 
         _createInputField: function (sFieldId, sDisplayValue) {
@@ -376,7 +437,7 @@ sap.ui.define([
                 url: this._crearDataURI(attachment.mimeType, attachment.fileContent),
                 attributes: [
                     new sap.m.ObjectAttribute({
-                        title: "Descargar",
+                        title: this.oResourceBundle.getText("download"),
                         text: attachment.fileName,
                         active: true
                     })
@@ -410,16 +471,13 @@ sap.ui.define([
             var that = this;
 
             if (this._oController && this._oController.onCancelarSolicitudFromDetail) {
-                this._oController.onCancelarSolicitudFromDetail(
-                    oSolicitudData.idSolicitud || oSolicitudData.externalCode,
-                    oSolicitudData.cust_nombreSol || oSolicitudData.externalCode
+                this._oController.onCancelarSolicitudFromDetail(                    
+                    oSolicitudData.cust_nombreSol, oSolicitudData.externalCode
                 ).then(function (bWasCancelled) {
                     if (bWasCancelled) {
                         setTimeout(function () {
                             that._onBackToMain(oDetailView);
                         }, 500);
-                    } else {
-                        MessageToast.show("Operación cancelada.");
                     }
                 }).catch(function (error) {
                     MessageToast.show("Error al procesar la cancelación: " + error);
