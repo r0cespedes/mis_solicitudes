@@ -32,11 +32,10 @@ sap.ui.define([
                 method: "GET",
                 async: true,
                 success: function (data) {
-                    that._setUserModel(data);
-                    that._getUserLanguage(data.name);
+                    that._setUserModel(data);             
                 },
-                error: function (jqXHR, textStatus, errorThrown) {
-                    console.error("Error obteniendo usuario:", jqXHR.status, jqXHR.responseText);
+                error: function (oError) {
+                    console.error("Error obteniendo usuario:", oError.status, oError.responseText);
                     that._setUserModel({
                         displayName: '',
                         email: '',
@@ -63,56 +62,7 @@ sap.ui.define([
             this.oCurrentUser = oViewUserModel.getData()[0];
             this.onGetDM001();
         },
-
-        _getUserLanguage: function (sUserName) {
-            var that = this;    
-            var oModel = this.getOwnerComponent().getModel();    
-            var sEntityPath = "/User('" + sUserName + "')";    
-        
-            var mParameters = {            
-                success: function (oData) {                
-                    var sUserLanguage = oData.defaultLocale;                                  
-                    that._applyLanguageUI5(sUserLanguage);
-                },        
-            
-                error: function (oError) {
-                    console.warn("Error obteniendo idioma del usuario:", oError);
-                    console.warn("Detalles del error:", oError.message || oError);        
-                },        
-            
-                headers: {
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
-                },        
-        
-                async: true,
-                urlParameters: {
-                    "$format": "json"
-                }
-            };    
-
-            oModel.read(sEntityPath, mParameters);
-        },
-
-        _applyLanguageUI5: function (sIdiomaSuccessFactors) {
-
-            var mMapeoIdiomas = {
-                "ca_ES": "ca",     // Catalán
-                "en_DEBUG": "en",  // English Debug -> English
-                "en_US": "en",     // English US
-                "es_ES": "es"      // Español
-            };
-          
-            var sIdiomaUI5 = mMapeoIdiomas[sIdiomaSuccessFactors];
-
-            if (!sIdiomaUI5) {
-                console.warn("Idioma no soportado:", sIdiomaSuccessFactors, "- Usando inglés por defecto");
-                sIdiomaUI5 = "en";
-            }
-           
-            sap.ui.getCore().getConfiguration().setLanguage(sIdiomaUI5);      
-
-        },
+       
 
         /**
         * Con la entidad cust_INETUM_SOL_DM_0002 y expand createdByNav recupero nombre usuario, correo, Id
