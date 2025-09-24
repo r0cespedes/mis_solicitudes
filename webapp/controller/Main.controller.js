@@ -77,8 +77,8 @@ sap.ui.define([
             try {
                 const oModel = this.getOwnerComponent().getModel();
                 const aFilters = [
-                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name), //this.oCurrentUser.name -- Usuario actual
-                    new Filter("cust_status", FilterOperator.EQ, 'EC')
+                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name) //this.oCurrentUser.name -- Usuario actual
+                    // new Filter("cust_status", FilterOperator.EQ, 'EC')
                 ];
 
                 // Parámetros para la consulta
@@ -203,7 +203,7 @@ sap.ui.define([
                 emphasizedAction: MessageBox.Action.NO,
                 onClose: function (oAction) {
                     if (oAction === MessageBox.Action.YES) {
-                        oContext.getModel().setProperty(oContext.getPath() + "/cust_status", "CANCELADO");
+                        oContext.getModel().setProperty(oContext.getPath() + "/cust_status", "Cancelado");
                         this.onChangeStatus(oSolicitudCompleta);
 
                         Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [sSolicitudId]), "toast");
@@ -257,7 +257,7 @@ sap.ui.define([
 
             if (iIndex >= 0) {
                 var oSolicitudCompleta = aSolicitudes[iIndex];
-                oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "CANCELADO");
+                oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "Cancelado");
                 Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitudCompleta.cust_nombreSol]), "toast");
 
                 this.onChangeStatus(oSolicitudCompleta);

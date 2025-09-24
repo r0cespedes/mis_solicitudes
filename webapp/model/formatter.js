@@ -13,13 +13,13 @@ sap.ui.define([], function () {
 
         formatStatusState: function (sStatus) {
             switch (sStatus) {
-                case "EN_CURSO":
+                case "En curso":
                     return "Warning";
-                case "COMPLETADO":
+                case "Completado":
                     return "Success";
-                case "CANCELADO":
+                case "Cancelado":
                     return "None";
-                case "RECHAZADO":
+                case "Rechazado":
                     return "Error";
                 default:
                     return "None";
@@ -28,13 +28,13 @@ sap.ui.define([], function () {
 
         formatStatusIcon: function (sStatus) {
             switch (sStatus) {
-                case "EN_CURSO":
+                case "En Curso":
                     return "sap-icon://pending";
-                case "COMPLETADO":
+                case "Completado":
                     return "sap-icon://complete";
-                case "CANCELADO":
+                case "Cancelado":
                     return "sap-icon://cancel";
-                case "RECHAZADO":
+                case "Rechazado":
                     return "sap-icon://decline";
                 default:
                     return "sap-icon://status-inactive";
@@ -44,11 +44,11 @@ sap.ui.define([], function () {
         formatNameStatus: function (status) {
             switch (status) {
                 case "EC":
-                    return "EN_CURSO"
+                    return "En curso"
                 case "CO":
-                    return "COMPLETADO"
+                    return "Completado"
                 case "CA":
-                    return "CANCELADO"
+                    return "Cancelado"
                 default:
                     break;
             }
@@ -56,7 +56,7 @@ sap.ui.define([], function () {
         },
 
         isStatusEnCurso: function (sStatus) {
-            return sStatus === "EN_CURSO";
+            return sStatus === "En curso";
         },
 
         formatDate: function (dateString) {
