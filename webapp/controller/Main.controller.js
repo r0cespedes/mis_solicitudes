@@ -93,8 +93,8 @@ sap.ui.define([
                 const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, aFilters, oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
 
                 // Formateo de fecha y status de solicitud
-                data.results.forEach(item => {
-                    item.cust_status = formatter.formatNameStatus(item.cust_status);
+                data.results.forEach(item => {                   
+                    item.cust_status_Str = formatter.formatNameStatus(item.cust_status);
                     item.cust_fechaSol_Str = formatter.formatDate(item.cust_fechaSol);
                 });
 
@@ -183,9 +183,19 @@ sap.ui.define([
         onVisualizarPress: function (oEvent) {
             Util.showBI(true);
             var oContext = oEvent.getSource().getBindingContext("solicitudes");
-            var oSolicitud = oContext.getObject();
+            var oSolicitud = oContext.getObject();        
+           
+            this._oDinamicFields.showDynamicDetailView(oSolicitud.externalCode, false);
+        },
 
-            this._oDinamicFields.showDynamicDetailView(oSolicitud.externalCode);
+        onEditarPress: function (oEvent) {
+            Util.showBI(true);
+            var oContext = oEvent.getSource().getBindingContext("solicitudes");
+            var oSolicitud = oContext.getObject();        
+           
+            if (oSolicitud.cust_status === "RA") {                
+                this._oDinamicFields.showDynamicDetailView(oSolicitud.externalCode, true);
+            }
         },
 
         /**

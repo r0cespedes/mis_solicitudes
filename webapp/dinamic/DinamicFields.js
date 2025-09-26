@@ -57,7 +57,7 @@ sap.ui.define([
         /**
          * Mostrar vista de detalle dinámica
          */
-        showDynamicDetailView: async function (sSolicitudId) {
+        showDynamicDetailView: async function (sSolicitudId, bEditMode = false) {
             try {
                 Util.showBI(true);
 
@@ -75,7 +75,7 @@ sap.ui.define([
                 if (aDynamicFields.length === 0) Util.showBI(false);
 
                 // Crear la vista dinámica
-                var oDetailView = this._createDetailView(oSolicitud, aDynamicFields);
+                var oDetailView = this._createDetailView(oSolicitud, aDynamicFields, bEditMode);
 
                 // Navegar a la vista
                 this._navigateToDetailView(oDetailView);
@@ -124,13 +124,13 @@ sap.ui.define([
         /**
          * Crear vista de detalle con Panel y márgenes
          */
-        _createDetailView: function (oSolicitud, aDynamicFields) {
+        _createDetailView: function (oSolicitud, aDynamicFields, bEditMode = false) {
             var that = this;
 
             this._updateResourceBundle();
 
             // Crear formulario simple
-            var oForm = this._createSimpleForm(oSolicitud, aDynamicFields);
+            var oForm = this._createSimpleForm(oSolicitud, aDynamicFields, bEditMode);
 
             // Crear Panel que contenga el formulario
             var oPanel = this._createPanelWithForm(oForm, oSolicitud);
@@ -149,13 +149,23 @@ sap.ui.define([
             var oCancelRequestButton = new Button({
                 text: this.oResourceBundle.getText("cancelRequest"),
                 type: "Reject",
-                visible: oSolicitud.cust_status === "EN_CURSO",
+                visible: oSolicitud.cust_status === "EC",
                 press: function () {
                     that._onCancelRequest(oSolicitud, oDetailView);
                 }
             });
 
             // Botones del footer
+
+            var oSaveButton = new Button({
+                text: this.oResourceBundle.getText("save"),
+                type: "Accept",
+                visible: bEditMode,
+                press: function () {
+                    that._onSaveChanges(oSolicitud, oDetailView);
+                }
+            });
+
             var oCloseButton = new Button({
                 text: this.oResourceBundle.getText("close"),
                 type: "Emphasized",
@@ -168,6 +178,7 @@ sap.ui.define([
                 content: [
                     new ToolbarSpacer(),
                     oCancelRequestButton,
+                    oSaveButton,
                     oCloseButton
                 ]
             });
@@ -239,9 +250,9 @@ sap.ui.define([
         /**
          * Crear formulario simple con campos básicos + dinámicos
          */
-        _createSimpleForm: function (oSolicitud, aDynamicFields) {
+        _createSimpleForm: function (oSolicitud, aDynamicFields, bEditMode = false) {
             var oForm = new SimpleForm({
-                editable: true,
+                editable: bEditMode,
                 layout: "ResponsiveGridLayout",
                 // Configuración para dos columnas con espaciado reducido
                 labelSpanXL: 4,
@@ -261,7 +272,7 @@ sap.ui.define([
             });
 
             // Agregar campos dinámicos directamente
-            this._addDynamicFields(oForm, aDynamicFields);
+            this._addDynamicFields(oForm, aDynamicFields, oSolicitud, bEditMode);
 
             return oForm;
         },
@@ -269,7 +280,7 @@ sap.ui.define([
         /**
          * Agregar campos dinámicos (todos los registros del array)
          */
-        _addDynamicFields: async function (oForm, aDynamicFields) {
+        _addDynamicFields: async function (oForm, aDynamicFields, oSolicitud, bEditMode = false) {
             let iTotalAttachments = 0;
 
             if (!aDynamicFields || aDynamicFields.length === 0) {
@@ -303,8 +314,10 @@ sap.ui.define([
                         console.error("Error cargando picklist label:", error);                      
                     }
                 }
+
+                let bFieldEditable = bEditMode && (oSolicitud.cust_status === "RA");
         
-                this._addField(oForm, sLabel, sValue, oDynamicField.cust_fieldtype, oDynamicField.cust_value);
+                this._addField(oForm, sLabel, sValue, oDynamicField.cust_fieldtype, oDynamicField.cust_value, bFieldEditable);
             }
 
             if (iTotalAttachments === 0) Util.showBI(false);            
@@ -314,7 +327,7 @@ sap.ui.define([
         /**
          * Agregar un campo simple al formulario
          */
-        _addField: function (oForm, sLabel, vValue, sTipyField, sCustValue) {
+        _addField: function (oForm, sLabel, vValue, sTipyField, sCustValue, bEditable) {
             // Formatear valor si hay formatter
             let sDisplayValue = vValue;
             let oField = null;
@@ -334,23 +347,23 @@ sap.ui.define([
 
             switch (String(sTipyField)) {
                 case "P":
-                    oField = this._createPicklistField(sFieldId, sDisplayValue);
+                    oField = this._createPicklistField(sFieldId, sDisplayValue, bEditable);
                     break;
                 case "F":
-                    oField = this._createDateField(sFieldId, sDisplayValue);
+                    oField = this._createDateField(sFieldId, sDisplayValue, bEditable);
                     break;
                 case "I":
-                    oField = this._createInputField(sFieldId, sDisplayValue);
+                    oField = this._createInputField(sFieldId, sDisplayValue, bEditable);
                     break;
                 case "S":
-                    oField = this._createTextAreaField(sFieldId, sDisplayValue);
+                    oField = this._createTextAreaField(sFieldId, sDisplayValue, bEditable);
                     break;
                 case "A":                   
-                    oField = this._createFileUploaderField(sFieldId, sCustValue);
+                    oField = this._createFileUploaderField(sFieldId, sCustValue, bEditable);
                     break;
 
                 default:
-                    oField = this._createInputField(sFieldId, sDisplayValue);
+                    oField = this._createInputField(sFieldId, sDisplayValue, bEditable);
             }
 
             // Agregar al formulario
@@ -359,55 +372,62 @@ sap.ui.define([
             
         },
 
-        _createPicklistField: function (sFieldId, sDisplayValue) {
+        _createPicklistField: function (sFieldId, sDisplayValue, bEditable) {
             const oInput = new Input({
                 id: sFieldId,
                 value: sDisplayValue,
-                editable: false,
+                editable: bEditable,
                 enabled: true
             });
             
             return oInput;
         },
 
-        _createInputField: function (sFieldId, sDisplayValue) {
+        _createInputField: function (sFieldId, sDisplayValue, bEditable) {
             return new Input({
                 id: sFieldId,
                 value: sDisplayValue,
-                editable: false,
+                editable: bEditable,
                 enabled: true
             });
         },
 
-        _createDateField: function (sFieldId, sDisplayValue) {
+        _createDateField: function (sFieldId, sDisplayValue, bEditable) {
             return new DatePicker({
                 id: sFieldId,
                 value: sDisplayValue,
-                editable: false,
+                editable: bEditable,
                 displayFormat: "dd/MM/yyyy",
                 valueFormat: "yyyy-MM-dd"
             });
         },
 
-        _createTextAreaField: function (sFieldId, sDisplayValue) {
+        _createTextAreaField: function (sFieldId, sDisplayValue, bEditable) {
             return new TextArea({
                 id: sFieldId,
                 value: sDisplayValue,
-                editable: false,
+                editable: bEditable,
                 rows: 3
             });
         },
 
-        _createFileUploaderField: function (sFieldId, sCustValue) {
+        _createFileUploaderField: function (sFieldId, sCustValue, bEditable) {
+            let that = this;
             const oUpload = new UploadCollection({
                 mode: sap.m.ListMode.SingleSelectMaster,
                 id: sFieldId,
                 multiple: false,
-                uploadEnabled: false,
-                terminationEnabled: false,
-                instantUpload: false,
+                uploadEnabled: bEditable,
+                terminationEnabled: bEditable,
+                instantUpload: bEditable,
                 showSeparators: "All",
-                change: this._oController.onDetectorAdjunto.bind(this._oController)
+                fileType: ["pdf"], 
+                mimeType: ["application/pdf"],
+                maximumFileSize: 10, // 10 MB máximo
+                change: this._oController.onDetectorAdjunto.bind(this._oController),
+                fileDeleted: function(oEvent) {
+                    that._onFileDeleted(oEvent, sFieldId, sCustValue);
+                },
             });
 
             const oModel = this._oController.getOwnerComponent().getModel();
@@ -430,6 +450,19 @@ sap.ui.define([
 
         },
 
+        _onFileDeleted: function(oEvent, sFieldId, sAttachmentId) {
+            const oItem = oEvent.getParameter("item");
+            const oUploadCollection = sap.ui.getCore().byId(sFieldId);
+            oUploadCollection.removeItem(oItem);
+            // Marcar que el archivo fue eliminado (para guardado posterior)
+            oUploadCollection.data("fileDeleted", true);
+            oUploadCollection.data("deletedAttachmentId", sAttachmentId);
+            
+            MessageToast.show(this.oResourceBundle.getText("fileDeletedSuccessfully"));
+           
+        },
+
+
         _viewAttachment: function (attachment) {
             const oItem = new sap.m.UploadCollectionItem({
                 fileName: attachment.fileName,
@@ -443,9 +476,9 @@ sap.ui.define([
                     })
                 ],
                 enableEdit: false,
-                enableDelete: false,
+                enableDelete: true,
                 visibleEdit: false,
-                visibleDelete: false
+                visibleDelete: true
             });
 
             oItem.attachPress(function (oEvent) {

@@ -89,7 +89,7 @@
                             <table:columns>
                                 <!-- Columna: Solicitud -->
                                 <table:Column
-                                    width="30%"
+                                    width="20%"
                                     sortProperty="cust_nombreSol"
                                     filterProperty="cust_nombreSol"
                                     showFilterMenuEntry="true"
@@ -111,7 +111,7 @@
 
                                 <!-- Columna: Tipo de Solicitud -->
                                 <table:Column
-                                    width="25%"
+                                    width="20%"
                                     sortProperty="cust_nombreTSol"
                                     filterProperty="cust_nombreTSol"
                                     showFilterMenuEntry="true"
@@ -155,7 +155,7 @@
 
                                 <!-- Columna: Estado -->
                                 <table:Column
-                                    width="15%"
+                                    width="10%"
                                     sortProperty="cust_status"
                                     filterProperty="cust_status"
                                     showFilterMenuEntry="true"
@@ -169,7 +169,7 @@
                                     </table:label>
                                     <table:template>
                                         <ObjectStatus
-                                            text="{solicitudes>cust_status}"
+                                            text="{solicitudes>cust_status_Str}"
                                             state="{
                                                     path: 'solicitudes>cust_status',
                                                     formatter: '.formatter.formatStatusState'
@@ -184,7 +184,7 @@
 
                                 <!-- Columna: Visualzar -->
                                 <table:Column
-                                    width="auto"
+                                    width="6%"
                                     hAlign="Center"
                                     showFilterMenuEntry="false"
                                     showSortMenuEntry="false"
@@ -197,6 +197,7 @@
                                     </table:label>
                                     <table:template>
                                         <Button
+                                            id="btnVisualize"
                                             icon="sap-icon://display"
                                             tooltip="{i18n>visualize}"
                                             press="onVisualizarPress"
@@ -209,7 +210,7 @@
                                 <!-- Columna: Cancelar -->
 
                                 <table:Column
-                                    width="auto"
+                                    width="6%"
                                     hAlign="Center"
                                     showFilterMenuEntry="true"
                                     showSortMenuEntry="true"
@@ -230,6 +231,33 @@
                                             visible="{
                                                     path: 'solicitudes>cust_status',
                                                     formatter: '.formatter.isStatusEnCurso'
+                                                }"
+                                        />
+                                    </table:template>
+                                </table:Column>
+
+                                 <!-- Columna: Editar -->
+                                <table:Column
+                                    width="6%"
+                                    hAlign="Center"                               
+                                    showFilterMenuEntry="true"
+                                    showSortMenuEntry="true"
+                                >
+                                    <table:label>
+                                        <Label
+                                            text="{i18n>edit}"
+                                            wrapping="false"
+                                        />
+                                    </table:label>
+                                    <table:template>                                 
+                                        <Button
+                                            icon="sap-icon://edit"
+                                            tooltip="{i18n>edit}"
+                                            press="onEditarPress"
+                                            type="Emphasized"
+                                            visible="{
+                                                    path: 'solicitudes>cust_status',
+                                                    formatter: '.formatter.isStatusRequireAction'
                                                 }"
                                         />
                                     </table:template>
