@@ -54,14 +54,28 @@ sap.ui.define([
          * @param {object} oDataToUpdate - Datos a actualizar
          * @returns {Promise} Promise con la respuesta
          */
+        // updateDataERP: function (sEntity, oService, oDataToUpdate) {
+        //     return new Promise((resolve, reject) => {     
+        //         oService.update(sEntity, oDataToUpdate, {
+        //             success: (data, response) => {                       
+        //                 resolve({ data, response });
+        //             },
+        //             error: (error) => {                      
+        //                 reject(error);
+        //             }
+        //         });
+        //     });
+        // },
+
         updateDataERP: function (sEntity, oService, oDataToUpdate) {
             return new Promise((resolve, reject) => {     
                 oService.update(sEntity, oDataToUpdate, {
-                    success: (data, response) => {                       
-                        resolve({ data, response });
+                    success: (oData, oResponse) => {                       
+                        // Si no hay payload (204), devolvemos un objeto vacío
+                        resolve({ data: oData || {}, response: oResponse });
                     },
-                    error: (error) => {                      
-                        reject(error);
+                    error: (oError) => {                      
+                        reject(oError);
                     }
                 });
             });

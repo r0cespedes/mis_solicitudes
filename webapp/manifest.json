@@ -91,7 +91,9 @@
       "": {
         "dataSource": "mainService",
         "preload": true,
-        "settings": {}
+        "settings": {
+          "useBatch": true
+        }
       },
       "mLocalModel": {
         "type": "sap.ui.model.json.JSONModel",

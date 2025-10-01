@@ -77,8 +77,7 @@ sap.ui.define([
             try {
                 const oModel = this.getOwnerComponent().getModel();
                 const aFilters = [
-                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name) //this.oCurrentUser.name -- Usuario actual
-                    // new Filter("cust_status", FilterOperator.EQ, 'EC')
+                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name) //this.oCurrentUser.name -- Usuario actual                  
                 ];
 
                 // Parámetros para la consulta
@@ -314,33 +313,42 @@ sap.ui.define([
             var sEntityPath = `/cust_INETUM_SOL_DM_0001(effectiveStartDate=datetime'${sFormattedDate}',externalCode='${sExternalCode}')`;
 
             return sEntityPath;
+            
         },
 
         onDetectorAdjunto: function (oEvent) {
-            // Se obtiene el archivo cargado.
             const oFile = oEvent.getParameter("files")[0];
-            if (!oFile) {
-                return;
-            }
-
-            this._nombreArchivo = oFile.name;
-            // Se crea un objeto de tipo FileReader que permite leer el archivo.
+            if (!oFile) return;
+        
             const oReader = new FileReader();
-
-            // Se define la acción a realizar cuando la lectura del archivo sea exitosa.
             oReader.onload = (e) => {
-                // Se transforma el archivo en base64 y se almacena en una variable del controlador.
                 const sBase64Content = e.target.result.split(",")[1];
-                this._contenidoArchivo = sBase64Content;
-                sap.m.MessageToast.show(this.oResourceBundle.getText("Archivo listo para ser guardado."));
+        
+                // Guardar para envío posterior
+                this._archivosParaSubir = {
+                    nombre: oFile.name,
+                    contenido: sBase64Content,
+                    mimeType: oFile.type
+                };
+        
+                // 🔹 Crear el UploadCollectionItem manualmente
+                const oItem = new sap.m.UploadCollectionItem({
+                    fileName: oFile.name,
+                    mimeType: oFile.type,
+                    url: "data:" + oFile.type + ";base64," + sBase64Content,
+                    thumbnailUrl: "sap-icon://pdf-attachment",
+                    enableEdit: true,
+                    enableDelete: true
+                });
+        
+                // Buscar el UploadCollection donde se cargó
+                const oUploadCollection = oEvent.getSource();
+                oUploadCollection.removeAllItems(); // Si solo quieres un archivo
+                oUploadCollection.addItem(oItem);
+        
+                sap.m.MessageToast.show(this.oResourceBundle.getText("fileReadyToBeSaved"));
             };
-
-            // Se define la acción en caso de error.
-            oReader.onerror = (e) => {
-                sap.m.MessageToast.show("Error al leer el archivo.");
-            };
-
-            // Se inicia la lectura del archivo.
+        
             oReader.readAsDataURL(oFile);
         }
 

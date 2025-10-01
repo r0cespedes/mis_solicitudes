@@ -43,7 +43,7 @@ sap.ui.define([
                 case "CO":
                     return "sap-icon://complete";
                 case "CA":
-                    return "sap-icon://cancel";
+                    return "sap-icon://sys-cancel";
                 case "RA":
                     return "sap-icon://decline";
                 default:
@@ -70,7 +70,7 @@ sap.ui.define([
         },
 
         isStatusEnCurso: function (sStatus) {
-            return sStatus === "EC";
+            return sStatus === "EC" || sStatus === "RA";
         },
 
         isStatusRequireAction: function (sStatus) {
