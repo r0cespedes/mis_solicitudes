@@ -134,7 +134,7 @@
                                 <!-- Columna: Fecha de Solicitud -->
                                 <table:Column
                                     width="10%"
-                                    sortProperty="cust_fechaSol_Str"
+                                    sortProperty="cust_fechaSol"
                                     filterProperty="cust_fechaSol_Str"
                                     showFilterMenuEntry="true"
                                     showSortMenuEntry="true"
@@ -147,17 +147,15 @@
                                         />
                                     </table:label>
                                     <table:template>
-                                        <Text
-                                            text="{path: 'solicitudes>cust_fechaSol_Str'}"
-                                        />
+                                       <Text text="{solicitudes>cust_fechaSol_Str}" />
                                     </table:template>
                                 </table:Column>
 
                                 <!-- Columna: Estado -->
                                 <table:Column
                                     width="10%"
-                                    sortProperty="cust_status"
-                                    filterProperty="cust_status"
+                                    sortProperty="cust_status_Str"
+                                    filterProperty="cust_status_Str"
                                     showFilterMenuEntry="true"
                                     showSortMenuEntry="true"
                                 >

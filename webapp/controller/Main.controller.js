@@ -2,6 +2,7 @@ sap.ui.define([
     "sap/ui/core/mvc/Controller",
     "sap/ui/model/json/JSONModel",
     "sap/m/MessageBox",
+    "sap/ui/core/Fragment",
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
     "../dinamic/DinamicFields",
@@ -9,7 +10,7 @@ sap.ui.define([
     "../model/formatter",
     "../Utils/Util",
 
-], function (Controller, JSONModel, MessageBox, Filter, FilterOperator, DinamicFields, Service, formatter, Util) {
+], function (Controller, JSONModel, MessageBox, Fragment, Filter, FilterOperator, DinamicFields, Service, formatter, Util) {
     "use strict";
 
     return Controller.extend("com.inetum.missolicitudes.controller.Main", {
@@ -32,7 +33,7 @@ sap.ui.define([
                 method: "GET",
                 async: true,
                 success: function (data) {
-                    that._setUserModel(data);             
+                    that._setUserModel(data);
                 },
                 error: function (oError) {
                     console.error("Error obteniendo usuario:", oError.status, oError.responseText);
@@ -62,7 +63,7 @@ sap.ui.define([
             this.oCurrentUser = oViewUserModel.getData()[0];
             this.onGetDM001();
         },
-       
+
 
         /**
         * Con la entidad cust_INETUM_SOL_DM_0002 y expand createdByNav recupero nombre usuario, correo, Id
@@ -92,7 +93,7 @@ sap.ui.define([
                 const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, aFilters, oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
 
                 // Formateo de fecha y status de solicitud
-                data.results.forEach(item => {                   
+                data.results.forEach(item => {
                     item.cust_status_Str = formatter.formatNameStatus(item.cust_status);
                     item.cust_fechaSol_Str = formatter.formatDate(item.cust_fechaSol);
                 });
@@ -106,6 +107,13 @@ sap.ui.define([
                 };
                 var oSolicitudesModel = new JSONModel(oSolicitudesData);
                 this.getView().setModel(oSolicitudesModel, "solicitudes");
+
+                var oBinding = oTable.getBinding("rows");
+                if (oBinding) {
+                    var oSorter = new sap.ui.model.Sorter("cust_fechaSol", true);
+                    oBinding.sort(oSorter);
+                }
+
                 Util.showBI(false);
 
             } catch (error) {
@@ -182,17 +190,17 @@ sap.ui.define([
         onVisualizarPress: function (oEvent) {
             Util.showBI(true);
             var oContext = oEvent.getSource().getBindingContext("solicitudes");
-            var oSolicitud = oContext.getObject();        
-           
+            var oSolicitud = oContext.getObject();
+
             this._oDinamicFields.showDynamicDetailView(oSolicitud.externalCode, false);
         },
 
         onEditarPress: function (oEvent) {
             Util.showBI(true);
             var oContext = oEvent.getSource().getBindingContext("solicitudes");
-            var oSolicitud = oContext.getObject();        
-           
-            if (oSolicitud.cust_status === "RA") {                
+            var oSolicitud = oContext.getObject();
+
+            if (oSolicitud.cust_status === "RA") {
                 this._oDinamicFields.showDynamicDetailView(oSolicitud.externalCode, true);
             }
         },
@@ -201,31 +209,105 @@ sap.ui.define([
          * Cancelar solicitud desde la tabla principal
          */
         onCancelarPress: function (oEvent) {
-            var oContext = oEvent.getSource().getBindingContext("solicitudes");
-            var oSolicitudCompleta = oContext.getObject();
-            var sSolicitudId = oContext.getProperty("cust_nombreSol");
-            var sMessage = this.oResourceBundle.getText("cancelRequestConfirmation", [sSolicitudId])
+            // Guardar el contexto y datos para usarlos después
+            this._oCurrentContext = oEvent.getSource().getBindingContext("solicitudes");
+            this._oSolicitudCompleta = this._oCurrentContext.getObject();
+            this._sSolicitudId = this._oCurrentContext.getProperty("cust_nombreSol");
 
-            MessageBox.warning(sMessage, {
-                title: "Confirmar Cancelación",
-                actions: [MessageBox.Action.YES, MessageBox.Action.NO],
-                emphasizedAction: MessageBox.Action.NO,
-                onClose: function (oAction) {
-                    if (oAction === MessageBox.Action.YES) {
-                        oContext.getModel().setProperty(oContext.getPath() + "/cust_status", "Cancelado");
-                        this.onChangeStatus(oSolicitudCompleta);
-
-                        Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [sSolicitudId]), "toast");
-
-                        // Si se quiere consultar de nuevo las solicitudes despues de cancelar se activa la funcion
-                        // this.onGetDM001() 
-
-                        // Forzar actualización de la tabla
-                        var oTable = this.byId("idRequestTable");
-                        oTable.getModel("solicitudes").refresh();
-                    }
-                }.bind(this)
+            // Configurar el modelo del dialog
+            const oDialogModel = new sap.ui.model.json.JSONModel({
+                icon: "sap-icon://message-warning",
+                type: this.oResourceBundle.getText("confirmCancel"),
+                state: "Warning",
+                message: this.oResourceBundle.getText("cancelRequestConfirmation", [this._sSolicitudId]),
+                acceptText: this.oResourceBundle.getText("aceptar") || "Aceptar",
+                cancelText: this.oResourceBundle.getText("cancel") || "Cancelar"
             });
+
+            const oView = this.getView();
+            if (!this.byId("commentDialog")) {
+                Fragment.load({
+                    id: oView.getId(),
+                    name: "com.inetum.missolicitudes.view.fragment.actionComment",
+                    controller: this
+                }).then(function (oDialog) {
+                    oView.addDependent(oDialog);
+                    oDialog.setModel(oDialogModel, "dialogViewModel");
+                   
+                    this.byId("acceptButton").attachPress(this.onConfirmCancelacion.bind(this));
+                    this.byId("cancelButton").attachPress(this.onCancelComment.bind(this));
+                    oDialog.open();
+
+                }.bind(this));
+            } else {
+                const oTextArea = this.byId("commentTextArea");
+                if (oTextArea) {
+                    oTextArea.setVisible(false);
+                    oTextArea.setValue("");
+                }
+                this.byId("commentDialog").setModel(oDialogModel, "dialogViewModel");
+                this.byId("commentDialog").open();
+            }
+        },
+
+        onToggleComment: function () {
+            const oTextArea = this.byId("commentTextArea");
+            if (oTextArea) {
+                oTextArea.setVisible(!oTextArea.getVisible());
+                if (oTextArea.getVisible()) {
+                    oTextArea.focus();
+                }
+            }
+        },
+
+        onConfirmCancelacion: function () {
+            // Obtener el comentario si existe
+            const oTextArea = this.byId("commentTextArea");
+            const sComment = oTextArea && oTextArea.getVisible() ? oTextArea.getValue() : "";
+
+            this.byId("commentDialog").close();
+            
+            this._oCurrentContext.getModel().setProperty(
+                this._oCurrentContext.getPath() + "/cust_status",
+                "Cancelado"
+            );
+
+            // Guardar el comentario si existe 
+            if (sComment && sComment.trim() !== "") {
+                this._oCurrentContext.getModel().setProperty(
+                    this._oCurrentContext.getPath() + "/cust_comentario",
+                    sComment
+                );
+            }
+
+            // Cambiar el status
+            this.onChangeStatus(this._oSolicitudCompleta);
+                        
+            Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel"),"toast");
+            // Actualizar la tabla
+            var oTable = this.byId("idRequestTable");
+            oTable.getModel("solicitudes").refresh();
+
+            // Limpiar variables
+            this._oCurrentContext = null;
+            this._oSolicitudCompleta = null;
+            this._sSolicitudId = null;
+        },
+
+        // Handler para el botón Cancelar del Dialog
+        onCancelComment: function () {
+            // Limpiar y cerrar el dialog
+            const oTextArea = this.byId("commentTextArea");
+            if (oTextArea) {
+                oTextArea.setValue("");
+                oTextArea.setVisible(false);
+            }
+            this.byId("commentDialog").close();
+
+            // Limpiar variables
+            this._oCurrentContext = null;
+            this._oSolicitudCompleta = null;
+            this._sSolicitudId = null;
         },
 
         /**
@@ -292,8 +374,18 @@ sap.ui.define([
                     cust_indexStep: "0"
                 }
 
-                let { oResult } = await Service.updateDataERP(sEntityPath, oModel, oDataToUpdate);
+                oModel.update(sEntityPath, oDataToUpdate, {
+                    success: function (oData, oResponse) {
+                        console.log("Status actualizado");
+                    },
+                    error: function (oError) {
+                        console.error("Error Actualizar", oError);
+                    }
+                });
+
                 Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitud.cust_nombreSol]), "toast");
+
+                this.onGetDM001()
 
             } catch (error) {
                 Util.onShowMessage("Error " + (error.message || error), 'toast');
@@ -313,24 +405,24 @@ sap.ui.define([
             var sEntityPath = `/cust_INETUM_SOL_DM_0001(effectiveStartDate=datetime'${sFormattedDate}',externalCode='${sExternalCode}')`;
 
             return sEntityPath;
-            
+
         },
 
         onDetectorAdjunto: function (oEvent) {
             const oFile = oEvent.getParameter("files")[0];
             if (!oFile) return;
-        
+
             const oReader = new FileReader();
             oReader.onload = (e) => {
                 const sBase64Content = e.target.result.split(",")[1];
-        
+
                 // Guardar para envío posterior
                 this._archivosParaSubir = {
                     nombre: oFile.name,
                     contenido: sBase64Content,
                     mimeType: oFile.type
                 };
-        
+
                 // 🔹 Crear el UploadCollectionItem manualmente
                 const oItem = new sap.m.UploadCollectionItem({
                     fileName: oFile.name,
@@ -340,15 +432,15 @@ sap.ui.define([
                     enableEdit: true,
                     enableDelete: true
                 });
-        
+
                 // Buscar el UploadCollection donde se cargó
                 const oUploadCollection = oEvent.getSource();
                 oUploadCollection.removeAllItems(); // Si solo quieres un archivo
                 oUploadCollection.addItem(oItem);
-        
+
                 sap.m.MessageToast.show(this.oResourceBundle.getText("fileReadyToBeSaved"));
             };
-        
+
             oReader.readAsDataURL(oFile);
         }
 

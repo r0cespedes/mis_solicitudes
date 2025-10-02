@@ -20,7 +20,8 @@ sap.ui.define([
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
     "../Utils/Util",
-    "../Utils/Lenguaje"
+    "../Utils/Lenguaje",
+    "sap/ui/model/json/JSONModel"
 ], function (BaseObject,
     formatter,
     View,
@@ -42,7 +43,8 @@ sap.ui.define([
     Filter,
     FilterOperator,
     Util,
-    Lenguaje) {
+    Lenguaje,
+    JSONModel) {
     "use strict";
 
     return BaseObject.extend("com.inetum.missolicitudes.dinamic.DinamicFields", {
@@ -52,6 +54,7 @@ sap.ui.define([
             BaseObject.prototype.constructor.apply(this, arguments);
             this._oController = oController;
             this._oMainView = oController.getView();
+            
         },
 
         /**
@@ -71,8 +74,13 @@ sap.ui.define([
 
                 // Cargar campos dinámicos DM_0003
                 var aDynamicFields = await this._loadDynamicFields(sSolicitudId);
+                // var aPicklist = this.getDynamicFieldFromC0001(oSolicitud.externalCode, oSolicitud.effectiveStartDate);
 
                 if (aDynamicFields.length === 0) Util.showBI(false);
+
+                if (bEditMode) {
+                    this._saveOriginalValues(aDynamicFields);
+                }
 
                 // Crear la vista dinámica
                 var oDetailView = this._createDetailView(oSolicitud, aDynamicFields, bEditMode);
@@ -87,6 +95,189 @@ sap.ui.define([
                 MessageToast.show("Error al cargar vista de detalle: " + error.message);
                 console.error("Error showDynamicDetailView:", error);
             }
+        },
+
+        _saveOriginalValues: function (aDynamicFields) {
+            var oOriginalValues = {};
+                       
+            aDynamicFields.forEach(function(field) {
+                oOriginalValues[field.externalCode] = {
+                    value: field.cust_value || "",
+                    fieldType: field.cust_fieldtype,                    
+                    fullFieldData: field
+                };
+            });
+            
+            var oOriginalModel = new JSONModel({
+                fields: oOriginalValues,
+                dynamicFields: aDynamicFields
+            });
+            
+            this._oMainView.setModel(oOriginalModel, "originalFieldValues");
+        },
+
+        _getChangedFields: function () {
+            var oOriginalModel = this._oMainView.getModel("originalFieldValues");
+            
+            if (!oOriginalModel) {
+                console.error("No se encontró el modelo de valores originales");
+                return [];
+            }
+            
+            var oOriginalData = oOriginalModel.getProperty("/fields");
+            var aDynamicFields = oOriginalModel.getProperty("/dynamicFields"); 
+
+            if (!this._fieldControlsMap) {
+                console.error("No se encontró el mapa de controles");
+                return [];
+            }
+            
+            var aChangedFields = [];
+            
+            aDynamicFields.forEach(function(field) {
+                // Obtener control directamente del mapa
+                var oControl = this._fieldControlsMap[field.externalCode];
+                
+                if (!oControl) {
+                    console.warn("Control no encontrado en mapa para:", field.externalCode);
+                    return;
+                }
+                                  
+                var vCurrentValue = this._getFieldValue(oControl, field.cust_fieldtype);
+                var vOriginalValue = oOriginalData[field.externalCode]?.value || ""; 
+                
+                if (this._hasValueChanged(vOriginalValue, vCurrentValue, field.cust_fieldtype)) {
+                    aChangedFields.push({
+                        fieldData: field,
+                        oldValue: vOriginalValue,
+                        newValue: vCurrentValue,
+                        changeType: "value_changed"
+                    });
+                } else {
+                    console.log(`Sin cambios`);
+                }
+            }.bind(this));
+
+            return aChangedFields;
+        },
+
+        _getFieldValue: function (oControl, sFieldType) {
+            var vValue = null;
+            
+            switch (sFieldType) {
+                case "F": // DatePicker
+                    var oDate = oControl.getDateValue();
+                    vValue = oDate ? oDate.toISOString().split('T')[0] : "";
+                    break;
+                    
+                case "P": // Picklist                   
+                    var sRealValue = oControl.data("realValue");
+                    if (sRealValue) {
+                        vValue = sRealValue;
+                    } else {                        
+                        vValue = oControl.getValue ? oControl.getValue() : "";
+                    }
+                    break;
+                    
+                case "A": // UploadCollection
+                    if (oControl.data("fileDeleted")) {
+                        // Si se marcó como eliminado, retornar null
+                        vValue = null;
+                    } else if (this._oController._archivosParaSubir) {
+                        // Si hay un archivo nuevo pendiente de subir
+                        vValue = "NEW_FILE"; // Marcador especial
+                    } else {
+                        // Si no hay cambios, mantener el ID original
+                        vValue = oControl.data("originalAttachmentId") || "";
+                    }
+                    break;
+                    
+                case "S": // TextArea
+                case "I": // Input
+                case "URL": // URL
+                default:
+                    vValue = oControl.getValue ? oControl.getValue() : "";
+            }
+            
+            return vValue;
+        },
+
+        _hasValueChanged: function (vOriginal, vCurrent, sFieldType) {
+            // Normalizar para evitar falsos positivos
+            var sOriginal = String(vOriginal || "").trim();
+            var sCurrent = String(vCurrent || "").trim();
+            
+            // Caso especial para fechas
+            if (sFieldType === "F") {
+                var dOriginal = sOriginal ? new Date(sOriginal) : null;
+                var dCurrent = sCurrent ? new Date(sCurrent) : null;
+                
+                if (!dOriginal && !dCurrent) return false;
+                if (!dOriginal || !dCurrent) return true;
+                
+                return dOriginal.toISOString().split('T')[0] !== dCurrent.toISOString().split('T')[0];
+            }
+            
+            // Caso especial para attachments
+            if (sFieldType === "A") {
+                // Si el valor actual es null, significa que se eliminó
+                if (sCurrent === "null" || vCurrent === null) {
+                    return true;
+                }
+                // Si el valor actual es "NEW_FILE", significa que hay un archivo nuevo
+                if (sCurrent === "NEW_FILE") {
+                    return true;
+                }
+                // Si los IDs son diferentes
+                return sOriginal !== sCurrent;
+            }
+            
+            // Para el resto de campos, comparación directa
+            return sOriginal !== sCurrent;
+        },
+
+        _buildFieldEntityPath: function (sDM0001ExternalCode, sEffectiveStartDate, sFieldExternalCode) {
+            var sFormattedDate = formatter._formatDateForEntityPath(sEffectiveStartDate);
+            
+            var sEntityPath = `/cust_INETUM_SOL_DM_0003(` +
+                `cust_INETUM_SOL_DM_0001_effectiveStartDate=datetime'${sFormattedDate}',` +
+                `cust_INETUM_SOL_DM_0001_externalCode='${sDM0001ExternalCode}',` +
+                `externalCode='${sFieldExternalCode}')`;
+            
+            return sEntityPath;
+        },
+
+        
+        getDynamicFieldFromC0001: async function (sExternalCode, vEffectiveStartDate) {
+            const oModel = this._oController.getOwnerComponent().getModel();
+        
+            try {
+                const sEntity = this._buildC0001EntityPath(sExternalCode, vEffectiveStartDate);
+                const oResponse = await Service.readDataERP(
+                    sEntity,
+                    oModel,
+                    [],
+                    { bParam: true, oParameter: { "$format": "json" } }
+                );
+        
+                return oResponse.data;
+        
+            } catch (e) {
+                console.error("Error en getDynamicFieldFromC0001:", e);
+                throw e;
+            }
+        },
+
+        _buildC0001EntityPath: function (sExternalCode, vEffectiveStartDate) {
+            // Normalizamos la fecha con el formatter
+            var sFormattedDate = formatter._formatDateForEntityPath(vEffectiveStartDate);
+        
+            // Armamos el path con la fecha + externalCode
+            var sEntityPath = `/cust_INETUM_SOL_C_0001(` +
+                `effectiveStartDate=datetime'${sFormattedDate}',` +
+                `externalCode=${sExternalCode}L)`;
+        
+            return sEntityPath;
         },
 
         /**
@@ -200,61 +391,160 @@ sap.ui.define([
                 content: [oPage]
             });
 
+            this._oCurrentDetailView = oDetailView;
+
             return oDetailView;
         },
 
-        _onSaveChanges: async function (oSolicitud, oDetailView) {
-            try {
-                const oModel = this._oController.getOwnerComponent().getModel();
-                let oFile = this._oController._archivosParaSubir;
-
-                if (oFile) {
-                    const oDatos_Adjunto = {
-                        fileName: oFile.nombre,
-                        fileContent: oFile.contenido,
-                        module: "GENERIC_OBJECT",
-                        userId: this._oController.oCurrentUser.name
-                    };
-                    await Service.createDataERP("/Attachment", oModel, oDatos_Adjunto);
-                }
-
-                var sEntityPath = this._oController._buildEntityPath(oSolicitud.externalCode, oSolicitud.effectiveStartDate);
-                const iCurrentIndexStep = parseInt(oSolicitud.cust_indexStep, 10) || 0;
-                const iNewIndexStep = (iCurrentIndexStep >= 1) ? iCurrentIndexStep + 1 : iCurrentIndexStep;
-
-                const oDatos_DM_0001 = {
-                    cust_status: "EC",
-                    cust_indexStep: iNewIndexStep,
-                    cust_fechaAct: new Date()
+        _onSaveChanges: function (oSolicitud, oDetailView) {
+            var that = this;
+            Util.showBI(true);
+            
+            const oModel = this._oController.getOwnerComponent().getModel();
+            
+            var aChangedFields = this._getChangedFields();
+            var oAttachmentChange = this._getAttachmentChanges();
+            
+            if (aChangedFields.length === 0 && !oAttachmentChange) {
+                MessageToast.show(this.oResourceBundle.getText("noChangesDetected") || "No se detectaron cambios");
+                Util.showBI(false);
+                return;
+            }
+            
+            // Actualizar campos normales primero
+            aChangedFields.forEach(function(change) {
+                var sFieldPath = that._buildFieldEntityPath(
+                    oSolicitud.externalCode,
+                    oSolicitud.effectiveStartDate,
+                    change.fieldData.externalCode
+                );
+                
+                oModel.update(sFieldPath, { cust_value: change.newValue || "" });
+            });
+            
+            // Si hay attachment, procesarlo por separado
+            if (oAttachmentChange && oAttachmentChange.action === "upload") {
+                const oDatos_Adjunto = {
+                    fileName: oAttachmentChange.file.nombre,
+                    fileContent: oAttachmentChange.file.contenido,
+                    module: "GENERIC_OBJECT",
+                    userId: this._oController.oCurrentUser.name
                 };
-
-
-                oModel.update(sEntityPath, oDatos_DM_0001, {
-                    success: function (oData, oResponse) {
-                        console.log("Update DM_0001 OK:", oResponse);
-                    },
-                    error: function (oError) {
-                        console.error("Update DM_0001 Error:", oError);
+                
+                oModel.create("/Attachment", oDatos_Adjunto, {
+                    success: function(oData) {
+                        var sNewAttachmentId = oData.attachmentId || "";
+                        var sFieldPath = that._buildFieldEntityPath(
+                            oSolicitud.externalCode,
+                            oSolicitud.effectiveStartDate,
+                            oAttachmentChange.fieldData.externalCode
+                        );
+                        
+                        oModel.update(sFieldPath, { cust_value: sNewAttachmentId });
                     }
                 });
-
-
-                oSolicitud.cust_indexStep = iNewIndexStep;
-                this.onSearchSteps(oSolicitud);
-
-                MessageToast.show(this.oResourceBundle.getText("ChangesSavedSuccessfully"));
-                this._onBackToMain(oDetailView);
-
-                setTimeout(function () {
-                    this._oController.onGetDM001();
-                }.bind(this), 1000);
-
-            } catch (error) {
-                console.error("Error en _onSaveChanges:", error);
-                Util.onShowMessage("ErrorSavingChanges", "error");
             }
+            
+            // Procesar eliminación de attachment
+            if (oAttachmentChange && oAttachmentChange.action === "delete") {
+                var sFieldPath = that._buildFieldEntityPath(
+                    oSolicitud.externalCode,
+                    oSolicitud.effectiveStartDate,
+                    oAttachmentChange.fieldData.externalCode
+                );
+                
+                oModel.update(sFieldPath, { cust_value: "" });
+            }
+            
+            // Usar timeout para dar tiempo a que los updates terminen
+            setTimeout(function() {
+                that._finalizeUpdate(oSolicitud, oDetailView);
+            }, 2000);
+        },
+        
+        _finalizeUpdate: function(oSolicitud, oDetailView) {
+            var that = this;
+            const oModel = this._oController.getOwnerComponent().getModel();
+            
+            var sEntityPath = this._oController._buildEntityPath(
+                oSolicitud.externalCode, 
+                oSolicitud.effectiveStartDate
+            );
+            
+            const iCurrentIndexStep = parseInt(oSolicitud.cust_indexStep, 10) || 0;
+            const iNewIndexStep = (iCurrentIndexStep >= 1) ? iCurrentIndexStep + 1 : iCurrentIndexStep;
+            
+            const oDatos_DM_0001 = {
+                cust_status: "EC",
+                cust_indexStep: iNewIndexStep,
+                cust_fechaAct: new Date()
+            };
+            
+            oModel.update(sEntityPath, oDatos_DM_0001, {
+                success: function() {
+                    console.log("DM_0001 Actualizado")
+                },
+                error: function(oError) {
+                    Util.onShowMessage("Error al guardar cambios", "error");
+                    Util.showBI(false);
+                }
+            });
+
+            oSolicitud.cust_indexStep = iNewIndexStep;
+            that.onSearchSteps(oSolicitud);
+            that._oController._archivosParaSubir = null;
+            
+            MessageToast.show(that.oResourceBundle.getText("ChangesSavedSuccessfully"));
+            that._onBackToMain(oDetailView);
+            
+            setTimeout(function () {
+                that._oController.onGetDM001();
+            }, 1500);
+            
+            Util.showBI(false);
         },
 
+        _getAttachmentChanges: function () {
+            var oOriginalModel = this._oMainView.getModel("originalFieldValues");
+            
+            if (!oOriginalModel) {
+                return null;
+            }
+            
+            var aDynamicFields = oOriginalModel.getProperty("/dynamicFields");
+            
+            // Buscar campos de tipo attachment
+            for (var i = 0; i < aDynamicFields.length; i++) {
+                var field = aDynamicFields[i];
+                
+                if (field.cust_fieldtype === "A") {
+                    var oControl = this._fieldControlsMap[field.externalCode];
+                    
+                    if (!oControl) continue;
+                    
+                    // Verificar si se eliminó un archivo
+                    if (oControl.data("fileDeleted")) {
+                        return {
+                            action: "delete",
+                            fieldData: field,
+                            oldAttachmentId: field.cust_value || ""
+                        };
+                    }
+                    
+                    // Verificar si hay un nuevo archivo para subir
+                    if (this._oController._archivosParaSubir) {
+                        return {
+                            action: "upload",
+                            file: this._oController._archivosParaSubir,
+                            fieldData: field,
+                            oldAttachmentId: field.cust_value || ""
+                        };
+                    }
+                }
+            }
+            
+            return null;
+        },
 
         onSearchSteps: function (oSolicitud) {
             const oModel = this._oController.getOwnerComponent().getModel();
@@ -422,6 +712,8 @@ sap.ui.define([
                 content: []
             });
 
+            this._fieldControlsMap = {};
+
             // Agregar campos dinámicos directamente
             this._addDynamicFields(oForm, aDynamicFields, oSolicitud, bEditMode);
 
@@ -451,6 +743,7 @@ sap.ui.define([
                 // const sLabel = "Campo " + (index + 1);
                 const sLabel = Lenguaje.obtenerValorLocalizado(oDynamicField, "cust_etiqueta");
                 let sValue = oDynamicField.cust_value || "";
+                let sDisplayValue = sValue; 
 
                 if (oDynamicField.cust_fieldtype === "P" && sValue !== "" && sValue.trim() !== "") {
                     try {
@@ -459,16 +752,31 @@ sap.ui.define([
                         const data = await Service.readDataERP("/PicklistLabel", oModel, aFilter);
 
                         if (data?.data?.results?.length) {
-                            sValue = data.data.results[0].label || sValue;
+                            sDisplayValue = data.data.results[0].label || sValue;
                         }
                     } catch (error) {
                         console.error("Error cargando picklist label:", error);
+                        Util.showBI(false)
                     }
                 }
 
-                let bFieldEditable = bEditMode && (oSolicitud.cust_status === "RA");
+                let bFieldEditable = oDynamicField.cust_modif === true && bEditMode && oSolicitud.cust_status === "RA";
 
-                this._addField(oForm, sLabel, sValue, oDynamicField.cust_fieldtype, oDynamicField.cust_value, bFieldEditable);
+                let oFieldConfig = {
+                    oForm,
+                    sLabel,
+                    sValue         : sDisplayValue,
+                    realValue      : sValue, 
+                    fieldType      : oDynamicField.cust_fieldtype,
+                    fieldValue     : oDynamicField.cust_value,
+                    editable       : bFieldEditable,
+                    sStatusEditable: oDynamicField.cust_modif,
+                    mandatory      : oDynamicField.cust_mandatory,
+                    externalCode   : oDynamicField.externalCode
+
+                };
+
+                this._addField(oFieldConfig);
             }
 
             if (iTotalAttachments === 0) Util.showBI(false);
@@ -478,9 +786,9 @@ sap.ui.define([
         /**
          * Agregar un campo simple al formulario
          */
-        _addField: function (oForm, sLabel, vValue, sTipyField, sCustValue, bEditable) {
-            // Formatear valor si hay formatter
-            let sDisplayValue = vValue;
+        _addField: function (oFieldConfig) {     
+            
+            let sDisplayValue = oFieldConfig.sValue;
             let oField = null;
 
             // Si el valor está vacío, mostrar texto por defecto
@@ -489,40 +797,47 @@ sap.ui.define([
             }
 
             // Crear elementos
-            var sFieldId = "field_" + Date.now() + "_" + Math.random();
+            var sFieldId = "field_" + oFieldConfig.externalCode;
 
             var oLabel = new Label({
-                text: sLabel,
-                labelFor: sFieldId
+                text: oFieldConfig.sLabel,
+                labelFor: sFieldId,
+                required: !!oFieldConfig.mandatory
+                
             });
 
-            switch (String(sTipyField)) {
+            switch (String(oFieldConfig.fieldType)) {
                 case "P":
-                    oField = this._createPicklistField(sFieldId, sDisplayValue, bEditable);
+                    oField = this._createPicklistField(sFieldId, sDisplayValue, oFieldConfig.editable);
+                    if (oField && oFieldConfig.realValue) {
+                        oField.data("realValue", oFieldConfig.realValue);
+                    }
                     break;
                 case "F":
-                    oField = this._createDateField(sFieldId, sDisplayValue, bEditable);
+                    oField = this._createDateField(sFieldId, sDisplayValue, oFieldConfig.editable);                  
                     break;
                 case "I":
-                    oField = this._createInputField(sFieldId, sDisplayValue, bEditable);
+                    oField = this._createInputField(sFieldId, sDisplayValue, oFieldConfig.editable);                    
                     break;
                 case "S":
-                    oField = this._createTextAreaField(sFieldId, sDisplayValue, bEditable);
+                    oField = this._createTextAreaField(sFieldId, sDisplayValue, oFieldConfig.editable);                    
                     break;
                 case "A":
-                    oField = this._createFileUploaderField(sFieldId, sCustValue, bEditable);
+                    oField = this._createFileUploaderField(sFieldId, oFieldConfig.fieldValue, oFieldConfig.editable);                    
                     break;
                 case "URL":
-                    oField = this._createURLField(sFieldId, sDisplayValue, bEditable);
+                    oField = this._createURLField(sFieldId, sDisplayValue, oFieldConfig.editable);                    
                     break;
-
                 default:
-                    oField = this._createInputField(sFieldId, sDisplayValue, bEditable);
+                    oField = this._createInputField(sFieldId, sDisplayValue, oFieldConfig.editable);
             }
 
+            if (oField && oFieldConfig.externalCode) {
+                this._fieldControlsMap[oFieldConfig.externalCode] = oField;
+            }
             // Agregar al formulario
-            oForm.addContent(oLabel);
-            oForm.addContent(oField);
+            oFieldConfig.oForm.addContent(oLabel);
+            oFieldConfig.oForm.addContent(oField);
 
         },
 
@@ -584,6 +899,8 @@ sap.ui.define([
                 },
             });
 
+            oUpload.data("originalAttachmentId", sCustValue || "");
+
             const oModel = this._oController.getOwnerComponent().getModel();
 
             let oAttachmentsModel = this._oController.getView().getModel("attachmentsModel");
@@ -594,40 +911,43 @@ sap.ui.define([
                 this._oController.getView().setModel(oAttachmentsModel, "attachmentsModel");
             }
 
-            const aFilter = [new Filter("attachmentId", FilterOperator.EQ, sCustValue)];
-
-            Service.readDataERP("/Attachment", oModel, aFilter)
-                .then(data => {
-                    if (data?.data?.results?.length) {
-
-                        let aAttachments = oAttachmentsModel.getProperty("/aAdjuntos");
-
-                        data.data.results.forEach(oNewAttachment => {
-                            const bExists = aAttachments.some(item =>
-                                item.attachmentId === oNewAttachment.attachmentId
-                            );
-
-                            if (!bExists) {
-                                aAttachments.push(oNewAttachment);
-                            }
-                        });
-
-                        oAttachmentsModel.setProperty("/aAttachments", aAttachments);
-
-                        const oItem = this._viewAttachment(data.data.results[0], bEditable);
-                        oUpload.addItem(oItem);
-
-                        Util.showBI(false)
-
-                    }
-                })
-                .catch(error => {
-                    console.error("Error cargando attachment:", error.message);
-                    Util.showBI(false);
-                });
-
+            if (sCustValue && sCustValue.trim() !== "") {
+                const aFilter = [new Filter("attachmentId", FilterOperator.EQ, sCustValue)];
+        
+                Service.readDataERP("/Attachment", oModel, aFilter)
+                    .then(data => {
+                        if (data?.data?.results?.length) {
+                            let aAttachments = oAttachmentsModel.getProperty("/aAdjuntos");
+        
+                            data.data.results.forEach(oNewAttachment => {
+                                const bExists = aAttachments.some(item =>
+                                    item.attachmentId === oNewAttachment.attachmentId
+                                );
+        
+                                if (!bExists) {
+                                    aAttachments.push(oNewAttachment);
+                                }
+                            });
+        
+                            oAttachmentsModel.setProperty("/aAttachments", aAttachments);
+        
+                            const oItem = this._viewAttachment(data.data.results[0], bEditable);
+                            oUpload.addItem(oItem);
+        
+                            Util.showBI(false);
+                        } else {
+                            Util.showBI(false);
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error cargando attachment:", error.message);
+                        Util.showBI(false);
+                    });
+            } else {
+                Util.showBI(false);
+            }
+        
             return oUpload;
-
         },
 
         _createURLField: function (sFieldId, sDisplayValue, bEditable) {
@@ -636,9 +956,8 @@ sap.ui.define([
                 return new Input({
                     id: sFieldId,
                     value: sDisplayValue,
-                    editable: bEditable,
-                    enabled: true,
-                    placeholder: "https://ejemplo.com"
+                    editable: false,
+                    enabled: true                    
                 });
             }
 
@@ -741,6 +1060,9 @@ sap.ui.define([
 
             // Volver
             oApp.back();
+
+            this._fieldControlsMap = null;
+            this._oCurrentDetailView = null;
 
             // Limpiar memoria
             setTimeout(function () {
