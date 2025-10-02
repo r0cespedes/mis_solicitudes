@@ -1,7 +1,17 @@
-sap.ui.define([], function () {
+sap.ui.define([
+    "sap/ui/model/resource/ResourceModel"
+], function (ResourceModel) {
     "use strict";
 
+    var oI18nModel = new ResourceModel({
+        bundleName: "com.inetum.missolicitudes.i18n.i18n"
+    });
+
     return {
+
+        getI18nText: function (sKey, aArgs) {
+            return oI18nModel.getResourceBundle().getText(sKey, aArgs);
+        },
 
 
         numberUnit: function (sValue) {
@@ -13,13 +23,13 @@ sap.ui.define([], function () {
 
         formatStatusState: function (sStatus) {
             switch (sStatus) {
-                case "EN_CURSO":
+                case "EC":
                     return "Warning";
-                case "COMPLETADO":
+                case "CO":
                     return "Success";
-                case "CANCELADO":
+                case "CA":
                     return "None";
-                case "RECHAZADO":
+                case "RA":
                     return "Error";
                 default:
                     return "None";
@@ -28,13 +38,13 @@ sap.ui.define([], function () {
 
         formatStatusIcon: function (sStatus) {
             switch (sStatus) {
-                case "EN_CURSO":
+                case "EC":
                     return "sap-icon://pending";
-                case "COMPLETADO":
+                case "CO":
                     return "sap-icon://complete";
-                case "CANCELADO":
-                    return "sap-icon://cancel";
-                case "RECHAZADO":
+                case "CA":
+                    return "sap-icon://sys-cancel";
+                case "RA":
                     return "sap-icon://decline";
                 default:
                     return "sap-icon://status-inactive";
@@ -42,22 +52,32 @@ sap.ui.define([], function () {
         },
 
         formatNameStatus: function (status) {
-            switch (status) {
-                case "EC":
-                    return "EN_CURSO"
-                case "CO":
-                    return "COMPLETADO"
-                case "CA":
-                    return "CANCELADO"
-                default:
-                    break;
-            }
 
+            if (status) {
+                switch (status) {
+                    case "EC":
+                        return this.getI18nText("statusInProgress");
+                    case "CO":
+                        return this.getI18nText("statusCompleted");
+                    case "CA":
+                        return this.getI18nText("statusCancelled");
+                    case "RA":
+                        return this.getI18nText("statusRequiresAction");
+                    default:
+                        return this.getI18nText("statusUnknown");
+                }
+            }
         },
 
         isStatusEnCurso: function (sStatus) {
-            return sStatus === "EN_CURSO";
+            return sStatus === "EC" || sStatus === "RA";
         },
+
+        isStatusRequireAction: function (sStatus) {
+            return sStatus === "RA";
+        },
+
+
 
         formatDate: function (dateString) {
 
