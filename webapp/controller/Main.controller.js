@@ -48,7 +48,7 @@ sap.ui.define([
             });
         },
 
-        _setUserModel: function (userData) {
+        _setUserModel: async function (userData) {
             var oViewUserModel = new sap.ui.model.json.JSONModel([{
                 "displayName": userData.displayName || '',
                 "email": userData.email || '',
@@ -61,7 +61,9 @@ sap.ui.define([
             sap.ui.getCore().setModel(oViewUserModel, "oModelUser");
             sessionStorage.setItem("displayName", oViewUserModel.getProperty("/0/name"));
             this.oCurrentUser = oViewUserModel.getData()[0];
+            await this._loadAndSetUserModel();
             this.onGetDM001();
+            
         },
 
 
@@ -70,60 +72,135 @@ sap.ui.define([
         */
 
         onGetDM001: async function () {
-
             var oTable = this.byId("idRequestTable");
             oTable.setShowNoData(false);
             Util.showBI(true);
 
             try {
                 const oModel = this.getOwnerComponent().getModel();
-                const aFilters = [
-                    new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name) //this.oCurrentUser.name -- Usuario actual                  
-                ];
 
-                // Parámetros para la consulta
-                const oParam = {
-                    bParam: true,
-                    oParameter: {
-                        "$expand": "cust_steps,cust_solFields/cust_fieldtypeNav"
+                // Consulta a DM_0001
+                const oMyRequestsPromise = Service.readDataERP(
+                    "/cust_INETUM_SOL_DM_0001",
+                    oModel,
+                    [
+                        new Filter("createdBy", FilterOperator.EQ, this.oCurrentUser.name)
+                    ],
+                    {
+                        bParam: true,
+                        oParameter: { "$expand": "cust_steps,cust_solFields/cust_fieldtypeNav" }
                     }
-                };
+                );
 
-                // LLamar al servicio
-                const { data } = await Service.readDataERP("/cust_INETUM_SOL_DM_0001", oModel, aFilters, oParam);   // ("/cust_INETUM_SOL_C_0001", oModel, [], {} ) Si no se necesitan filtros o parametros
+                // Consulta a pendientes de editar
+                const oPendingRequestsPromise = this._getRequestsPendingEdit();
 
-                // Formateo de fecha y status de solicitud
-                data.results.forEach(item => {
+                //Se ejecutan las dos promesas de las consultas
+                const [oMyRequestsResult, aPendingRequests] = await Promise.all([
+                    oMyRequestsPromise,
+                    oPendingRequestsPromise
+                ]);
+
+                const aMyRequests = oMyRequestsResult.data?.results ?? [];
+                const oCombinedRequests = new Map();
+
+                aMyRequests.forEach(request => oCombinedRequests.set(request.externalCode, request));
+                aPendingRequests.forEach(request => oCombinedRequests.set(request.externalCode, request));
+
+                const aFinalRequests = Array.from(oCombinedRequests.values());
+
+
+                // Formateo de fecha y status de la lista final y unificada
+                aFinalRequests.forEach(item => {
                     item.cust_status_Str = formatter.formatNameStatus(item.cust_status);
                     item.cust_fechaSol_Str = formatter.formatDate(item.cust_fechaSol);
                 });
 
-                const oSolicitudesData = {
+                // Creación del modelo JSON con la data final
+                const oSolicitudesModel = new JSONModel({
                     solicitudes: {
-                        results: data.results,
-                        totalCount: data.results.length
-                    },
-
-                };
-                var oSolicitudesModel = new JSONModel(oSolicitudesData);
+                        results: aFinalRequests,
+                        totalCount: aFinalRequests.length
+                    }
+                });
                 this.getView().setModel(oSolicitudesModel, "solicitudes");
 
                 var oBinding = oTable.getBinding("rows");
                 if (oBinding) {
-                    var oSorter = new sap.ui.model.Sorter("cust_fechaSol", true);
+                    var oSorter = new sap.ui.model.Sorter("cust_fechaSol", true); // true for descending
                     oBinding.sort(oSorter);
                 }
 
-                Util.showBI(false);
-
             } catch (error) {
-                Util.onShowMessage("Error " + (error.message || error), 'toast');
-                Util.showBI(false);
+                Util.onShowMessage("Error al cargar solicitudes: " + (error.message || error), 'error');
             } finally {
                 oTable.setBusy(false);
                 oTable.setShowNoData(true);
                 Util.showBI(false);
             }
+        },
+
+        /**
+         * Obtiene las solicitudes que el usuario actual tiene pendientes por editar.
+         * Consulta DM_0002 para encontrar los pasos activos del usuario.
+         * Usa las claves obtenidas para buscar los detalles en DM_0001 en un solo batch.
+         */
+        _getRequestsPendingEdit: function () {
+            return new Promise(async (resolve, reject) => {
+                const oModel = this.getOwnerComponent().getModel();
+                const sUserOnLine = this.oCurrentUser.name;
+
+                const oParametersDM0002 = {
+                    bParam: true,
+                    oParameter: {
+                        "$select": "cust_INETUM_SOL_DM_0001_externalCode,cust_INETUM_SOL_DM_0001_effectiveStartDate",
+                        "$filter": `cust_aprobUser eq '${sUserOnLine}' and cust_activeStep eq true`
+                    }
+                };
+
+                const oDataDm0002 = await Service.readDataERP("/cust_INETUM_SOL_DM_0002", oModel, [], oParametersDM0002);
+                const aRequestKeys = oDataDm0002.data?.results ?? [];
+
+                if (aRequestKeys.length === 0) {
+                    resolve([]);
+                    return;
+                }
+
+                // Consulta de DM_0001 usando las claves 
+                const GROUP_ID = "pendingEditBatch";
+                oModel.setDeferredGroups([GROUP_ID]);
+                const aPendingRequests = [];
+
+                aRequestKeys.forEach(key => {
+                    const sPath = oModel.createKey('/cust_INETUM_SOL_DM_0001', {
+                        effectiveStartDate: key.cust_INETUM_SOL_DM_0001_effectiveStartDate,
+                        externalCode: key.cust_INETUM_SOL_DM_0001_externalCode
+                    });
+
+                    oModel.read(sPath, {
+                        urlParameters: { "$expand": "cust_steps,cust_solFields/cust_fieldtypeNav" },
+                        groupId: GROUP_ID,
+                        success: (data) => {
+                            // Se añaden las que están pendientes de editar
+                            if (data && data.cust_status === 'RA') {
+                                aPendingRequests.push(data);
+                            }
+                        },
+                        error: (err) => console.error("Error en batch read:", err)
+                    });
+                });
+
+                oModel.submitChanges({
+                    groupId: GROUP_ID,
+                    success: () => {
+                        resolve(aPendingRequests);
+                    },
+                    error: (oError) => {
+                        console.error("Error al enviar el batch:", oError);
+                        reject(oError);
+                    }
+                });
+            });
         },
 
         onSearch: function (oEvent) {
@@ -233,7 +310,7 @@ sap.ui.define([
                 }).then(function (oDialog) {
                     oView.addDependent(oDialog);
                     oDialog.setModel(oDialogModel, "dialogViewModel");
-                   
+
                     this.byId("acceptButton").attachPress(this.onConfirmCancelacion.bind(this));
                     this.byId("cancelButton").attachPress(this.onCancelComment.bind(this));
                     oDialog.open();
@@ -266,7 +343,7 @@ sap.ui.define([
             const sComment = oTextArea && oTextArea.getVisible() ? oTextArea.getValue() : "";
 
             this.byId("commentDialog").close();
-            
+
             this._oCurrentContext.getModel().setProperty(
                 this._oCurrentContext.getPath() + "/cust_status",
                 "Cancelado"
@@ -282,8 +359,8 @@ sap.ui.define([
 
             // Cambiar el status
             this.onChangeStatus(this._oSolicitudCompleta);
-                        
-            Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel"),"toast");
+
+            Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel"), "toast");
             // Actualizar la tabla
             var oTable = this.byId("idRequestTable");
             oTable.getModel("solicitudes").refresh();
@@ -409,8 +486,21 @@ sap.ui.define([
         },
 
         onDetectorAdjunto: function (oEvent) {
+            const oResourceBundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
             const oFile = oEvent.getParameter("files")[0];
-            if (!oFile) return;
+            const oUploadCollection = oEvent.getSource();
+
+            if (!oFile) {
+                return;
+            }
+
+            if (oFile.type !== "application/pdf") {
+                sap.m.MessageBox.error(oResourceBundle.getText("error.fileNotPdf"));
+                oUploadCollection.removeAllItems();
+                this._archivosParaSubir = null;
+
+                return;
+            }
 
             const oReader = new FileReader();
             oReader.onload = (e) => {
@@ -423,26 +513,51 @@ sap.ui.define([
                     mimeType: oFile.type
                 };
 
-                // 🔹 Crear el UploadCollectionItem manualmente
+                // Crear el UploadCollectionItem manualmente
                 const oItem = new sap.m.UploadCollectionItem({
                     fileName: oFile.name,
                     mimeType: oFile.type,
                     url: "data:" + oFile.type + ";base64," + sBase64Content,
                     thumbnailUrl: "sap-icon://pdf-attachment",
-                    enableEdit: true,
+                    enableEdit: false,
                     enableDelete: true
                 });
 
-                // Buscar el UploadCollection donde se cargó
-                const oUploadCollection = oEvent.getSource();
-                oUploadCollection.removeAllItems(); // Si solo quieres un archivo
+                oUploadCollection.removeAllItems();
                 oUploadCollection.addItem(oItem);
 
-                sap.m.MessageToast.show(this.oResourceBundle.getText("fileReadyToBeSaved"));
+                sap.m.MessageToast.show(oResourceBundle.getText("fileReadyToBeSaved"));
             };
-
             oReader.readAsDataURL(oFile);
-        }
+        },
+
+
+        _loadAndSetUserModel: async function () {
+            const sUserId = this.oCurrentUser.name;
+
+            try {
+                const oModelOData = this.getOwnerComponent().getModel();
+                const aFilters = [new Filter("userId", FilterOperator.EQ, sUserId)];
+                const oUserParams = {
+                    bParam: true,
+                    oParameter: { "$select": "userId,defaultLocale" }
+                };
+
+                const oInfoUser = await Service.readDataERP("/User", oModelOData, aFilters, oUserParams);
+
+                if (oInfoUser.data.results && oInfoUser.data.results.length > 0) {
+                    const oFullUserData = oInfoUser.data.results[0];
+                    const oUserModel = new JSONModel(oFullUserData);
+                    this.getOwnerComponent().setModel(oUserModel, "user");
+                    const sLang = oUserModel.oData.defaultLocale;
+                    sap.ui.getCore().getConfiguration().setLanguage(sLang);
+                } else {
+                    console.warn("No se encontraron datos para el usuario:", sUserId);
+                }
+            } catch (error) {
+                console.error("Error al cargar la información del usuario en Main.controller:", error);
+            }
+        },
 
 
     });
