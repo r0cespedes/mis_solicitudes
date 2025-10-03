@@ -25,6 +25,7 @@ sap.ui.define([
     "sap/m/Select",
     "sap/ui/core/Item",
     "sap/m/MessageBox",
+    "sap/ui/core/ValueState",
 ], function (BaseObject,
     formatter,
     View,
@@ -50,7 +51,8 @@ sap.ui.define([
     JSONModel,
     Select,
     Item,
-    MessageBox
+    MessageBox,
+    ValueState
 ) {
     "use strict";
 
@@ -312,8 +314,12 @@ sap.ui.define([
                     throw new Error("Solicitud no encontrada");
                 }
 
-                var aCustFields = oSolicitud.cust_solFields.results;
-                return aCustFields || [];
+                var aCampos = oSolicitud.cust_solFields.results;
+                if (!aCampos) {
+                    return [];
+                }
+                const aCamposActivos = aCampos.filter(oCampo => oCampo.cust_status === 'A');
+                return aCamposActivos;
 
             } catch (error) {
                 console.error("Error cargando campos dinámicos:", error);
@@ -739,31 +745,42 @@ sap.ui.define([
          */
         _addDynamicFields: async function (oForm, aDynamicFields, oSolicitud, bEditMode = false) {
             let iTotalAttachments = 0;
+            const user = this._oController.oCurrentUser.name; // Usuario actual
 
             if (!aDynamicFields || aDynamicFields.length === 0) {
                 Util.showBI(false);
                 return;
             }
-
+            this._oSolicitud = oSolicitud;
             aDynamicFields.forEach(field => {
                 if (field.cust_fieldtype === "A") {
                     iTotalAttachments++;
                 }
             });
 
-
             for (let index = 0; index < aDynamicFields.length; index++) {
                 const oDynamicField = aDynamicFields[index];
-                // const sLabel = "Campo " + (index + 1);
                 const sLabel = Lenguaje.obtenerValorLocalizado(oDynamicField, "cust_etiqueta");
                 let sValue = oDynamicField.cust_value || "";
                 let sDisplayValue = sValue;
-                
-                //Modificación 
                 let aOpcionesPicklist = [];
-                let bFieldEditable = oDynamicField.cust_modif === true && bEditMode && oSolicitud.cust_status === "RA";
+
+
+                // Calculo de los valores base para editable y mandatory
+                let bEsEditable = oDynamicField.cust_modif === true && bEditMode && oSolicitud.cust_status === "RA";
+                let bEsObligatorio = !!oDynamicField.cust_mandatory;
+
+                const bUsuarioEsCreador = (user === oSolicitud.createdBy);
+
+                // Si el usuario es el creador Y el campo está marcado como NO modificable por el empleado
+                if (bUsuarioEsCreador && !oDynamicField.cust_ModificablePEmpleado) {
+                    bEsEditable = false;
+                    bEsObligatorio = false;
+                }
+
+                // Lógica para cargar opciones de Picklist 
                 if (oDynamicField.cust_fieldtype === "P") {
-                    if (bFieldEditable) {
+                    if (bEsEditable) {
                         try {
                             const sPicklistId = oDynamicField.cust_picklist;
                             if (sPicklistId) {
@@ -779,7 +796,6 @@ sap.ui.define([
                             const oModel = this._oController.getOwnerComponent().getModel();
                             const aFilter = [new Filter("optionId", FilterOperator.EQ, sValue)];
                             const data = await Service.readDataERP("/PicklistLabel", oModel, aFilter);
-
                             if (data?.data?.results?.length) {
                                 sDisplayValue = data.data.results[0].label || sValue;
                             }
@@ -789,26 +805,7 @@ sap.ui.define([
                     }
                 }
 
-                //Fin modificación
-                /*
-                if (oDynamicField.cust_fieldtype === "P" && sValue !== "" && sValue.trim() !== "") {
-                    try {
-                        const oModel = this._oController.getOwnerComponent().getModel();
-                        const aFilter = [new Filter("optionId", FilterOperator.EQ, sValue)];
-                        const data = await Service.readDataERP("/PicklistLabel", oModel, aFilter);
-
-                        if (data?.data?.results?.length) {
-                            sDisplayValue = data.data.results[0].label || sValue;
-                        }
-                    } catch (error) {
-                        console.error("Error cargando picklist label:", error);
-                        Util.showBI(false)
-                    }
-                }
-                
-                let bFieldEditable = oDynamicField.cust_modif === true && bEditMode && oSolicitud.cust_status === "RA";
-                */
-               if (oDynamicField.cust_fieldtype === "URL") {
+                if (oDynamicField.cust_fieldtype === "URL") {
                     sValue = oDynamicField.cust_vDefecto;
                     sDisplayValue = oDynamicField.cust_vDefecto;
                 }
@@ -820,19 +817,17 @@ sap.ui.define([
                     realValue: sValue,
                     fieldType: oDynamicField.cust_fieldtype,
                     fieldValue: oDynamicField.cust_value,
-                    editable: bFieldEditable,
+                    editable: bEsEditable,
                     sStatusEditable: oDynamicField.cust_modif,
-                    mandatory: oDynamicField.cust_mandatory,
+                    mandatory: bEsObligatorio,
                     externalCode: oDynamicField.externalCode,
                     picklistOptions: aOpcionesPicklist
-
                 };
 
                 this._addField(oFieldConfig);
             }
 
             if (iTotalAttachments === 0) Util.showBI(false);
-
         },
 
         /**
@@ -842,7 +837,7 @@ sap.ui.define([
 
             let sDisplayValue = oFieldConfig.sValue;
             let oField = null;
-            let textoUrl = ""; 
+            let textoUrl = "";
 
             // Si el valor está vacío, mostrar texto por defecto
             if (sDisplayValue === undefined || sDisplayValue === null || sDisplayValue === "") {
@@ -1064,8 +1059,8 @@ sap.ui.define([
                 if (sUrl && sUrl !== "(Vacío)") {
                     return new sap.m.Link({
                         id: sFieldId,
-                        text: textoUrl, 
-                        href: sUrl, 
+                        text: textoUrl,
+                        href: sUrl,
                         target: "_blank",
                         wrapping: true
                     });
@@ -1073,7 +1068,7 @@ sap.ui.define([
                 else {
                     return new sap.m.Text({
                         id: sFieldId,
-                        text: "—" 
+                        text: "—"
                     });
                 }
             }
@@ -1189,12 +1184,13 @@ sap.ui.define([
 
         validateForm: function () {
             let bFormularioValido = true;
-
+            const user = this._oController.oCurrentUser.name;
+            const bUsuarioEsCreador = (user === this._oSolicitud.createdBy);
             this._dynamicFields.forEach(function (field) {
                 const oControl = this._fieldControlsMap[field.externalCode];
                 if (oControl) {
                     if (typeof oControl.setValueState === "function") {
-                        oControl.setValueState(sap.ui.core.ValueState.None);
+                        oControl.setValueState(ValueState.None);
                     }
                     if (field.cust_fieldtype === "A" && oControl.hasStyleClass("campoAdjuntoError")) {
                         oControl.removeStyleClass("campoAdjuntoError");
@@ -1203,7 +1199,14 @@ sap.ui.define([
             }.bind(this));
 
             for (const field of this._dynamicFields) {
-                if (field.cust_mandatory) {
+
+                let bDebeValidarse = !!field.cust_mandatory;
+                if (bUsuarioEsCreador && !field.cust_ModificablePEmpleado) {
+                    bDebeValidarse = false; // Anulamos la validación
+                }
+
+                if (bDebeValidarse) {
+
                     const oControl = this._fieldControlsMap[field.externalCode];
                     if (!oControl) continue;
 
@@ -1211,19 +1214,13 @@ sap.ui.define([
 
                     switch (field.cust_fieldtype) {
                         case "A":
-                            if (oControl.getItems && oControl.getItems().length > 0) {
-                                bCampoValido = true;
-                            }
+                            if (oControl.getItems && oControl.getItems().length > 0) bCampoValido = true;
                             break;
                         case "P":
-                            if (oControl.getSelectedKey()) {
-                                bCampoValido = true;
-                            }
+                            if (oControl.getSelectedKey()) bCampoValido = true;
                             break;
                         default:
-                            if (oControl.getValue && oControl.getValue().trim() !== "") {
-                                bCampoValido = true;
-                            }
+                            if (oControl.getValue && oControl.getValue().trim() !== "") bCampoValido = true;
                             break;
                     }
 
@@ -1232,10 +1229,11 @@ sap.ui.define([
                         if (field.cust_fieldtype === "A") {
                             oControl.addStyleClass("campoAdjuntoError");
                         } else if (typeof oControl.setValueState === "function") {
-                            oControl.setValueState(sap.ui.core.ValueState.Error);
+                            // Usamos la variable importada
+                            oControl.setValueState(ValueState.Error);
                         }
                     }
-                }
+                } 
             }
 
             return bFormularioValido;
