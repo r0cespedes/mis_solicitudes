@@ -13,48 +13,58 @@ sap.ui.define([
      */
     async function main() {
         let sLang;
+        const maxRetries = 5;
+        const retryDelay = 1000;
 
-        try {
-            const oResponse = await fetch(`${sap.ui.require.toUrl("com/inetum/missolicitudes")}/user-api/currentUser`);
-            if (!oResponse.ok) {
-                throw new Error(`Error del servidor: ${oResponse.status} ${oResponse.statusText}`);
-            }
-            const oUserData = await oResponse.json();
-            const oDataModel = new ODataModel({
-                serviceUrl: sap.ui.require.toUrl("com/inetum/missolicitudes") + "/odata/v2"
-            });
-            const aFilters = [new Filter("userId", FilterOperator.EQ, oUserData.name)];
-            const oResult = await new Promise((resolve, reject) => {
-                oDataModel.read("/User", {
-                    filters: aFilters,
-                    urlParameters: {
-                        "$select": "defaultLocale"
-                    },
-                    success: (oData) => {
-                        if (oData.results && oData.results.length > 0) {
-                            resolve(oData.results[0]);
-                        } else {
-                            reject(new Error("Usuario no encontrado en SFSF."));
-                        }
-                    },
-                    error: (oError) => reject(oError)
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+
+            try {
+                const oResponse = await fetch(`${sap.ui.require.toUrl("com/inetum/missolicitudes")}/user-api/currentUser`);
+                if (!oResponse.ok) {
+                    throw new Error(`Error del servidor: ${oResponse.status} ${oResponse.statusText}`);
+                }
+                const oUserData = await oResponse.json();
+                const oDataModel = new ODataModel({
+                    serviceUrl: sap.ui.require.toUrl("com/inetum/missolicitudes") + "/odata/v2"
                 });
-            });
-            const sLang = oResult.defaultLocale;
-            sap.ui.getCore().getConfiguration().setLanguage(sLang);
-        } catch (oError) {
-            console.warn("No se pudo obtener el idioma del usuario de SFSF. Usando idioma del navegador como fallback.", oError);
-            sLang = navigator.language;
-            sap.ui.getCore().getConfiguration().setLanguage(sLang);
-        }
+                const aFilters = [new Filter("userId", FilterOperator.EQ, oUserData.name)];
+                const oResult = await new Promise((resolve, reject) => {
+                    oDataModel.read("/User", {
+                        filters: aFilters,
+                        urlParameters: {
+                            "$select": "defaultLocale"
+                        },
+                        success: (oData) => {
+                            if (oData.results && oData.results.length > 0) {
+                                resolve(oData.results[0]);
+                            } else {
+                                reject(new Error("Usuario no encontrado en SFSF."));
+                            }
+                        },
+                        error: (oError) => reject(oError)
+                    });
+                });
+                const sLang = oResult.defaultLocale;
+                sap.ui.getCore().getConfiguration().setLanguage(sLang);
+            } catch (oError) {
+                if (attempt === maxRetries) {
+                    console.error("Todos los intentos para cargar los datos del usuario fallaron.", oError);
+                    console.warn("Usando idioma del navegador como fallback.", oError);
+                    sLang = navigator.language;
+                    sap.ui.getCore().getConfiguration().setLanguage(sLang);
+                    throw oError;
+                }
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+            }
 
-        new ComponentContainer({
-            name: "com.inetum.missolicitudes",
-            settings: {
-                id: "com.inetum.missolicitudes"
-            },
-            async: true
-        }).placeAt("content");
+            new ComponentContainer({
+                name: "com.inetum.missolicitudes",
+                settings: {
+                    id: "com.inetum.missolicitudes"
+                },
+                async: true
+            }).placeAt("content");
+        }
     }
 
     main();
