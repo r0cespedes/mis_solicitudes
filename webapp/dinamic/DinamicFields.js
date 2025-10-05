@@ -26,6 +26,7 @@ sap.ui.define([
     "sap/ui/core/Item",
     "sap/m/MessageBox",
     "sap/ui/core/ValueState",
+    "../Utils/DialogManager", 
 ], function (BaseObject,
     formatter,
     View,
@@ -52,7 +53,8 @@ sap.ui.define([
     Select,
     Item,
     MessageBox,
-    ValueState
+    ValueState,
+    DialogManager
 ) {
     "use strict";
 
@@ -413,30 +415,52 @@ sap.ui.define([
 
         _onSaveChanges: function (oSolicitud, oDetailView) {
             var that = this;
+            
+            //  validar el formulario
             if (!this.validateForm()) {
                 const sErrorMessage = this.oResourceBundle.getText("validation.fillMandatoryFields");
                 Util.onShowMessage(sErrorMessage, "error");
                 return;
-            }
-            Util.showBI(true);
-
-            const oModel = this._oController.getOwnerComponent().getModel();
-
+            }        
+        
             var aChangedFields = this._getChangedFields();
             var oAttachmentChange = this._getAttachmentChanges();
-
+        
             if (aChangedFields.length === 0 && !oAttachmentChange) {
-                MessageToast.show(this.oResourceBundle.getText("noChangesDetected") || "No se detectaron cambios");
-                Util.showBI(false);
+                MessageToast.show(this.oResourceBundle.getText("noChangesDetected"));
                 return;
-            }
+            }        
+        
+            const oDialogModel = new JSONModel({
+                icon: "sap-icon://save",
+                type: this.oResourceBundle.getText("saveConfirmation"),
+                state: "Information",
+                message: this.oResourceBundle.getText("saveChangesConfirmation"),
+                acceptText: this.oResourceBundle.getText("save"),
+                cancelText: this.oResourceBundle.getText("cancel")
+            });        
+           
+            DialogManager.open(this._oMainView, oDialogModel, {
+                onAccept: function(sComment) {                  
+                    that._performSave(oSolicitud, oDetailView, aChangedFields, oAttachmentChange);
+                },
+                onCancel: function() {
+                    console.log("Guardado cancelado por el usuario");
+                }
+            }).catch(function(error) {
+                console.log("Guardado cancelado por el usuario");
+            });
+        },
 
-
+        _performSave: function(oSolicitud, oDetailView, aChangedFields, oAttachmentChange) {
+            var that = this;
+            Util.showBI(true);        
+            const oModel = this._oController.getOwnerComponent().getModel();        
+      
             var aNormalChangedFields = aChangedFields.filter(function (change) {
                 return change.fieldData.cust_fieldtype !== 'A';
-            });
-
-            // Actualizar campos normales primero
+            });        
+    
             aNormalChangedFields.forEach(function (change) {
                 var sFieldPath = that._buildFieldEntityPath(
                     oSolicitud.externalCode,
@@ -445,40 +469,40 @@ sap.ui.define([
                 );
                 oModel.update(sFieldPath, { cust_value: change.newValue || "" });
             });
-            // Si hay attachment, procesarlo por separado
+              
             if (oAttachmentChange) {
                 var sAttachmentFieldPath = that._buildFieldEntityPath(
                     oSolicitud.externalCode,
                     oSolicitud.effectiveStartDate,
                     oAttachmentChange.fieldData.externalCode
                 );
-
+        
                 switch (oAttachmentChange.action) {
-                    case "upload": // Cubre casos de subida y reemplazo
+                    case "upload":
                         const oDatos_Adjunto = {
                             fileName: oAttachmentChange.file.nombre,
                             fileContent: oAttachmentChange.file.contenido,
                             module: "GENERIC_OBJECT",
                             userId: this._oController.oCurrentUser.name
                         };
-
+        
                         oModel.create("/Attachment", oDatos_Adjunto, {
                             success: function (oData) {
                                 var sNewAttachmentId = oData.attachmentId || "";
                                 oModel.update(sAttachmentFieldPath, { cust_value: sNewAttachmentId });
                             },
-                            error: function (oError) { console.error("Error al crear adjunto", oError); }
+                            error: function (oError) { 
+                                console.error("Error al crear adjunto", oError); 
+                            }
                         });
                         break;
-
-                    case "delete": // Procesar eliminación de attachment
+        
+                    case "delete":
                         oModel.update(sAttachmentFieldPath, { cust_value: "" });
                         break;
                 }
-            }
-
-
-            // Usar timeout para dar tiempo a que los updates terminen
+            }        
+           
             setTimeout(function () {
                 that._finalizeUpdate(oSolicitud, oDetailView);
             }, 2000);
@@ -507,7 +531,7 @@ sap.ui.define([
                     console.log("DM_0001 Actualizado")
                 },
                 error: function (oError) {
-                    Util.onShowMessage("Error al guardar cambios", "error");
+                    console.log("Error al guardar cambios", "error");
                     Util.showBI(false);
                 }
             });
@@ -1124,24 +1148,46 @@ sap.ui.define([
             return "data:" + sMimeType + ";base64," + sBase64;
         },
 
-        _onCancelRequest: function (oSolicitudData, oDetailView) {
-            var that = this;
-
-            if (this._oController && this._oController.onCancelarSolicitudFromDetail) {
-                this._oController.onCancelarSolicitudFromDetail(
-                    oSolicitudData.cust_nombreSol, oSolicitudData.externalCode
-                ).then(function (bWasCancelled) {
-                    if (bWasCancelled) {
-                        setTimeout(function () {
-                            that._onBackToMain(oDetailView);
-                        }, 500);
-                    }
-                }).catch(function (error) {
-                    MessageToast.show("Error al procesar la cancelación: " + error);
-                });
-            } else {
-                MessageToast.show("Error: No se pudo acceder a la función de cancelación");
-            }
+        _onCancelRequest: function (oSolicitud, oDetailView) {
+            var that = this;        
+        
+            if (!this._oController || !this._oController.onCancelarSolicitudFromDetail) {                
+                return;
+            }        
+           
+            const oDialogModel = new JSONModel({
+                icon: "sap-icon://message-warning",
+                type: this.oResourceBundle.getText("confirmCancel"),
+                state: "Warning",
+                message: this.oResourceBundle.getText("cancelRequestConfirmation", [oSolicitud.cust_nombreSol]),
+                acceptText: this.oResourceBundle.getText("aceptar"),
+                cancelText: this.oResourceBundle.getText("cancel")
+            });        
+          
+            DialogManager.open(this._oMainView, oDialogModel, {
+                onAccept: function(sComment) {                   
+                    that._oController.onCancelarSolicitudFromDetail(
+                        oSolicitud.cust_nombreSol, 
+                        oSolicitud.externalCode,
+                        sComment  
+                    ).then(function (bWasCancelled) {
+                        if (bWasCancelled) {
+                            MessageToast.show(that.oResourceBundle.getText("requestCancelled"));
+                            setTimeout(function () {
+                                that._onBackToMain(oDetailView);
+                            }, 500);
+                        }
+                    }).catch(function (error) {
+                        MessageToast.show("Error al procesar la cancelación: " + error);
+                        Util.showBI(false);
+                    });
+                },
+                onCancel: function() {
+                    console.log("Cancelación de solicitud abortada por el usuario");
+                }
+            }).catch(function(error) {
+                console.log("Cancelación de solicitud abortada por el usuario");
+            });
         },
 
         /**
