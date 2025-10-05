@@ -9,8 +9,9 @@ sap.ui.define([
     "../service/Service",
     "../model/formatter",
     "../Utils/Util",
+    "../Utils/DialogManager",
 
-], function (Controller, JSONModel, MessageBox, Fragment, Filter, FilterOperator, DinamicFields, Service, formatter, Util) {
+], function (Controller, JSONModel, MessageBox, Fragment, Filter, FilterOperator, DinamicFields, Service, formatter, Util, DialogManager) {
     "use strict";
 
     return Controller.extend("com.inetum.missolicitudes.controller.Main", {
@@ -285,14 +286,14 @@ sap.ui.define([
         /**
          * Cancelar solicitud desde la tabla principal
          */
-        onCancelarPress: function (oEvent) {
+        onCancelarPress: async function (oEvent) {
             // Guardar el contexto y datos para usarlos después
             this._oCurrentContext = oEvent.getSource().getBindingContext("solicitudes");
             this._oSolicitudCompleta = this._oCurrentContext.getObject();
             this._sSolicitudId = this._oCurrentContext.getProperty("cust_nombreSol");
 
             // Configurar el modelo del dialog
-            const oDialogModel = new sap.ui.model.json.JSONModel({
+            const oDialogModel = new JSONModel({
                 icon: "sap-icon://message-warning",
                 type: this.oResourceBundle.getText("confirmCancel"),
                 state: "Warning",
@@ -301,29 +302,15 @@ sap.ui.define([
                 cancelText: this.oResourceBundle.getText("cancel") || "Cancelar"
             });
 
-            const oView = this.getView();
-            if (!this.byId("commentDialog")) {
-                Fragment.load({
-                    id: oView.getId(),
-                    name: "com.inetum.missolicitudes.view.fragment.actionComment",
-                    controller: this
-                }).then(function (oDialog) {
-                    oView.addDependent(oDialog);
-                    oDialog.setModel(oDialogModel, "dialogViewModel");
-
-                    this.byId("acceptButton").attachPress(this.onConfirmCancelacion.bind(this));
-                    this.byId("cancelButton").attachPress(this.onCancelComment.bind(this));
-                    oDialog.open();
-
-                }.bind(this));
-            } else {
-                const oTextArea = this.byId("commentTextArea");
-                if (oTextArea) {
-                    oTextArea.setVisible(false);
-                    oTextArea.setValue("");
-                }
-                this.byId("commentDialog").setModel(oDialogModel, "dialogViewModel");
-                this.byId("commentDialog").open();
+            try {
+                const result = await DialogManager.open(this.getView(), oDialogModel, {
+                    onAccept: this.onConfirmCancelacion.bind(this),
+                    onCancel: this.onCancelComment.bind(this)
+                });
+                
+                console.log("Dialog aceptado:", result.comment);
+            } catch (error) {
+                console.log("Dialog cancelado o cerrado");
             }
         },
 
@@ -392,24 +379,24 @@ sap.ui.define([
          * Esta función será llamada desde DinamicFields
          * Retorna una Promise para manejar la respuesta asíncrona
          */
-        onCancelarSolicitudFromDetail: function (sNombreSol, sSolicitudId) {
+        onCancelarSolicitudFromDetail: function (sNombreSol, sSolicitudId, sComment) {
             var that = this;
-            var sMessage = this.oResourceBundle.getText("cancelRequestConfirmation", [sNombreSol])
-
+            
             return new Promise(function (resolve, reject) {
-                MessageBox.warning(sMessage, {
-                    title: "Confirmar Cancelación",
-                    actions: [MessageBox.Action.YES, MessageBox.Action.NO],
-                    emphasizedAction: MessageBox.Action.NO,
-                    onClose: function (oAction) {
-                        if (oAction === MessageBox.Action.YES) {
-                            var bSuccess = that._cancelarSolicitudById(sSolicitudId);
-                            resolve(bSuccess); // Devuelve true si se canceló exitosamente
-                        } else {
-                            resolve(false); // Devuelve false si el usuario canceló la acción
-                        }
+                try {         
+                    var bSuccess = that._cancelarSolicitudById(sSolicitudId, sComment);                    
+                    if (bSuccess) {                     
+                        setTimeout(function () {
+                            that.onGetDM001();
+                        }, 800);                        
+                        resolve(true);
+                    } else {
+                        reject(new Error("No se pudo cancelar la solicitud"));
                     }
-                });
+                } catch (error) {
+                    console.error("Error al cancelar solicitud:", error);
+                    reject(error);
+                }
             });
         },
 
@@ -426,10 +413,7 @@ sap.ui.define([
             if (iIndex >= 0) {
                 var oSolicitudCompleta = aSolicitudes[iIndex];
                 oModel.setProperty("/solicitudes/results/" + iIndex + "/cust_status", "Cancelado");
-                Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitudCompleta.cust_nombreSol]), "toast");
-
-                this.onChangeStatus(oSolicitudCompleta);
-                // Forzar actualización
+                this.onChangeStatus(oSolicitudCompleta);        
                 oModel.refresh(sSolicitudId);
                 return true;
             }
@@ -462,14 +446,14 @@ sap.ui.define([
 
                 Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitud.cust_nombreSol]), "toast");
 
-                this.onGetDM001()
+                await this.onGetDM001();
 
             } catch (error) {
                 Util.onShowMessage("Error " + (error.message || error), 'toast');
                 Util.showBI(false);
 
             } finally {
-                Util.onShowMessage(this.oResourceBundle.getText("successRequestCancel", [oSolicitud.cust_nombreSol]), "toast");
+                Util.showBI(false);
             }
 
         },
