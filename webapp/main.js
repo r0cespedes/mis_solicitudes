@@ -46,25 +46,26 @@ sap.ui.define([
                 });
                 const sLang = oResult.defaultLocale;
                 sap.ui.getCore().getConfiguration().setLanguage(sLang);
+                break;
             } catch (oError) {
                 if (attempt === maxRetries) {
                     console.error("Todos los intentos para cargar los datos del usuario fallaron.", oError);
-                    console.warn("Usando idioma del navegador como fallback.", oError);
+                    console.warn("Usando idioma del navegador como fallback.");
                     sLang = navigator.language;
                     sap.ui.getCore().getConfiguration().setLanguage(sLang);
-                    throw oError;
+                } else {
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
                 }
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
-            }
-
-            new ComponentContainer({
-                name: "com.inetum.missolicitudes",
-                settings: {
-                    id: "com.inetum.missolicitudes"
-                },
-                async: true
-            }).placeAt("content");
+            }           
         }
+
+        new ComponentContainer({
+            name: "com.inetum.missolicitudes",
+            settings: {
+                id: "com.inetum.missolicitudes"
+            },
+            async: true
+        }).placeAt("content");
     }
 
     main();
