@@ -203,7 +203,16 @@ sap.ui.define([
 
             // Retornar en formato ISO (requerido para EntityPath)
             return dDate.toISOString();
-        }
+        },
+
+        generarIdNumericoUnico: function () {
+            const timestamp = Date.now();
+            const randomSuffix = Math.floor(Math.random() * 900) + 100;
+            const idNumerico = parseInt(String(timestamp) + String(randomSuffix), 10);
+ 
+            return idNumerico;
+        },
+ 
 
 
 
