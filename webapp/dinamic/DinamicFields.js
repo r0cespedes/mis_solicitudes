@@ -1,4 +1,3 @@
-// Dynamic Fields desplegado 07-10-2025
 
 sap.ui.define([
     "sap/ui/base/Object",
@@ -1235,8 +1234,7 @@ sap.ui.define([
                 showSeparators: "All",
                 fileType: ["jpeg", "jpg", "png", "pdf"],
                 mimeType: ["application/pdf", "image/jpeg", "image/jpg", "image/png"],
-                maximumFileSize: 10, // 10 MB máximo
-                width: "60%",
+                maximumFileSize: 10, // 10 MB máximo              
                 change: function (oEvent) {
                     that._onFilesChangeForField(oEvent, sFieldId);
                 },
@@ -1250,8 +1248,14 @@ sap.ui.define([
             oUpload.data("deletedAttachments", []);
 
             this._loadExistingAttachments(oUpload, sCustValue, bEditable);
-
-            return oUpload;
+            
+            const oWrapper = new sap.m.HBox({
+                width: "70%",
+                justifyContent: "Start", 
+                items: [oUpload]
+            });
+            
+            return oWrapper;
         },
 
         _loadExistingAttachments: function (oUploadCollection, sCustValue, bEditable) {
@@ -1438,7 +1442,6 @@ sap.ui.define([
 
                 //  Primero eliminar el registro DM_0003
                 that._eliminarRegistroDM0003(sExistingAttachmentId, function () {
-                    console.log("✅ Registro DM_0003 eliminado");
 
                     //  Ahora eliminar el Attachment usando submitChanges
                     oModel.remove(sAttachmentPath);
