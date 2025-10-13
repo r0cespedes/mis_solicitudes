@@ -212,7 +212,40 @@ sap.ui.define([
  
             return idNumerico;
         },
- 
+
+        _getFileIcon: function (sMediaType) {
+            if (!sMediaType) return "sap-icon://document";
+
+            if (sMediaType.startsWith("image/")) {
+                return "sap-icon://card";
+            } else if (sMediaType === "application/pdf") {
+                return "sap-icon://pdf-attachment";
+            }
+            return "sap-icon://document";
+        },
+
+        _formatFileType: function (sMediaType) {
+            if (!sMediaType) return "";
+
+            const oTypes = {
+                "application/pdf": "PDF",
+                "image/jpeg": "JPEG",
+                "image/jpg": "JPG",
+                "image/png": "PNG"
+            };
+
+            return oTypes[sMediaType] || sMediaType.split("/")[1].toUpperCase();
+        },
+
+        _formatFileSize: function (iBytes) {
+            if (!iBytes || iBytes === 0) return "0 B";
+
+            const aUnits = ["B", "KB", "MB", "GB"];
+            const iUnit = Math.floor(Math.log(iBytes) / Math.log(1024));
+            const fSize = iBytes / Math.pow(1024, iUnit);
+
+            return fSize.toFixed(2) + " " + aUnits[iUnit];
+        },
 
 
 
