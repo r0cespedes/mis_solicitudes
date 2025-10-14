@@ -1,8 +1,6 @@
 sap.ui.define([
     "sap/ui/core/mvc/Controller",
-    "sap/ui/model/json/JSONModel",
-    "sap/m/MessageBox",
-    "sap/ui/core/Fragment",
+    "sap/ui/model/json/JSONModel",  
     "sap/ui/model/Filter",
     "sap/ui/model/FilterOperator",
     "../dinamic/DinamicFields",
@@ -11,7 +9,7 @@ sap.ui.define([
     "../Utils/Util",
     "../Utils/DialogManager",
 
-], function (Controller, JSONModel, MessageBox, Fragment, Filter, FilterOperator, DinamicFields, Service, formatter, Util, DialogManager) {
+], function (Controller, JSONModel, Filter, FilterOperator, DinamicFields, Service, formatter, Util, DialogManager) {
     "use strict";
 
     return Controller.extend("com.inetum.missolicitudes.controller.Main", {
@@ -27,26 +25,26 @@ sap.ui.define([
 
 
         loadCurrentUser: function () {
-            var that = this;
-
-            $.ajax({
-                url: sap.ui.require.toUrl("com/inetum/missolicitudes") + "/user-api/currentUser",
-                method: "GET",
-                async: true,
-                success: function (data) {
-                    that._setUserModel(data);
-                },
-                error: function (oError) {
-                    console.error("Error obteniendo usuario:", oError.status, oError.responseText);
-                    that._setUserModel({
+            const sUrl = sap.ui.require.toUrl("com/inetum/missolicitudes") + "/user-api/currentUser";
+        
+            fetch(sUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => this._setUserModel(data))
+                .catch(error => {
+                    console.error("Error obteniendo usuario:", error);
+                    this._setUserModel({
                         displayName: '',
                         email: '',
                         firstname: '',
                         lastname: '',
                         name: ''
                     });
-                }
-            });
+                });
         },
 
         _setUserModel: async function (userData) {
@@ -63,7 +61,7 @@ sap.ui.define([
             sessionStorage.setItem("displayName", oViewUserModel.getProperty("/0/name"));
             this.oCurrentUser = oViewUserModel.getData()[0];
             await this._loadAndSetUserModel();
-            this.onGetDM001();
+            await this.onGetDM001();
             
         },
 
@@ -298,8 +296,9 @@ sap.ui.define([
                 type: this.oResourceBundle.getText("confirmCancel"),
                 state: "Warning",
                 message: this.oResourceBundle.getText("cancelRequestConfirmation", [this._sSolicitudId]),
-                acceptText: this.oResourceBundle.getText("aceptar") || "Aceptar",
-                cancelText: this.oResourceBundle.getText("cancel") || "Cancelar"
+                acceptText: this.oResourceBundle.getText("save"),
+                cancelText: this.oResourceBundle.getText("cancel"),
+                showAddCommentLink: true
             });
 
             try {
@@ -517,6 +516,7 @@ sap.ui.define([
 
 
         _loadAndSetUserModel: async function () {
+            Util.showBI(true);
             const sUserId = this.oCurrentUser.name;
 
             try {

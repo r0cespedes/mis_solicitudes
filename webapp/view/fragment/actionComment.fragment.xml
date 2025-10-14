@@ -14,7 +14,8 @@
                 <Link id="_IDGenLink"
                     class="sapUiTinyMarginTop"
                     text="{i18n>addComment}"
-                    press=".onToggleComment" />
+                    press=".onToggleComment" 
+                    visible="{dialogViewModel>/showAddCommentLink}"/>
                 <TextArea
                     id="commentTextArea"
                     width="100%"

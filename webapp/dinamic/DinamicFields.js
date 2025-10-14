@@ -1,3 +1,4 @@
+
 sap.ui.define([
     "sap/ui/base/Object",
     "../model/formatter",
@@ -6,8 +7,6 @@ sap.ui.define([
     "sap/m/Label",
     "sap/m/Input",
     "sap/m/DatePicker",
-    "sap/m/TextArea",
-    "sap/m/UploadCollection",
     "sap/ui/layout/form/SimpleForm",
     "sap/m/MessageToast",
     "sap/m/Button",
@@ -25,8 +24,18 @@ sap.ui.define([
     "sap/m/Select",
     "sap/ui/core/Item",
     "sap/m/MessageBox",
-    "sap/ui/core/ValueState",
-    "../Utils/DialogManager", 
+    "sap/ui/core/library",
+    "../Utils/DialogManager",
+    "sap/m/Table",
+    "sap/m/Column",
+    "sap/m/ColumnListItem",
+    "sap/m/Text",
+    "sap/m/Link",
+    "sap/m/FlexBox",
+    "sap/ui/unified/FileUploader",
+    "sap/ui/core/Icon",
+ 
+    
 ], function (BaseObject,
     formatter,
     View,
@@ -34,8 +43,6 @@ sap.ui.define([
     Label,
     Input,
     DatePicker,
-    TextArea,
-    UploadCollection,
     SimpleForm,
     MessageToast,
     Button,
@@ -53,10 +60,19 @@ sap.ui.define([
     Select,
     Item,
     MessageBox,
-    ValueState,
-    DialogManager
+    library,
+    DialogManager,
+    Table,
+    Column,
+    ColumnListItem,
+    Text,
+    Link,
+    FlexBox,
+    FileUploader,
+    Icon,
 ) {
     "use strict";
+    const ValueState = library.ValueState;
 
     return BaseObject.extend("com.inetum.missolicitudes.dinamic.DinamicFields", {
         formatter: formatter,
@@ -84,8 +100,7 @@ sap.ui.define([
                 }
 
                 // Cargar campos dinámicos DM_0003
-                var aDynamicFields = await this._loadDynamicFields(sSolicitudId);
-                // var aPicklist = this.getDynamicFieldFromC0001(oSolicitud.externalCode, oSolicitud.effectiveStartDate);
+                var aDynamicFields = await this._loadDynamicFields(sSolicitudId);     
 
                 if (aDynamicFields.length === 0) Util.showBI(false);
 
@@ -94,7 +109,7 @@ sap.ui.define([
                 }
 
                 // Crear la vista dinámica
-                var oDetailView = this._createDetailView(oSolicitud, aDynamicFields, bEditMode);
+                var oDetailView = this._createDetailView(oSolicitud, aDynamicFields, bEditMode, this._oController);
 
                 // Navegar a la vista
                 this._navigateToDetailView(oDetailView);
@@ -147,14 +162,14 @@ sap.ui.define([
                 var vCurrentValue = null;
 
                 // obtener el valor actual
-                if (oControl instanceof sap.m.Select) {
+                if (oControl instanceof Select) {
                     vCurrentValue = oControl.getSelectedKey();
                 } else if (field.cust_fieldtype === 'P') {
 
                     vCurrentValue = vOriginalValue;
                 }
 
-                else if (oControl instanceof sap.m.DatePicker) {
+                else if (oControl instanceof DatePicker) {
                     // Para DatePicker
                     vCurrentValue = oControl.getDateValue() ? oDateFormatter.format(oControl.getDateValue()) : "";
                 } else if (oControl.getValue) { // Para demás campos
@@ -174,81 +189,6 @@ sap.ui.define([
             return aChangedFields;
         },
 
-        _getFieldValue: function (oControl, sFieldType) {
-            var vValue = null;
-
-            switch (sFieldType) {
-                case "F": // DatePicker
-                    var oDate = oControl.getDateValue();
-                    vValue = oDate ? oDate.toISOString().split('T')[0] : "";
-                    break;
-
-                case "P": // Picklist                   
-                    var sRealValue = oControl.data("realValue");
-                    if (sRealValue) {
-                        vValue = sRealValue;
-                    } else {
-                        vValue = oControl.getValue ? oControl.getValue() : "";
-                    }
-                    break;
-
-                case "A": // UploadCollection
-                    if (oControl.data("fileDeleted")) {
-                        // Si se marcó como eliminado, retornar null
-                        vValue = null;
-                    } else if (this._oController._archivosParaSubir) {
-                        // Si hay un archivo nuevo pendiente de subir
-                        vValue = "NEW_FILE"; // Marcador especial
-                    } else {
-                        // Si no hay cambios, mantener el ID original
-                        vValue = oControl.data("originalAttachmentId") || "";
-                    }
-                    break;
-
-                case "S": // TextArea
-                case "I": // Input
-                case "URL": // URL
-                default:
-                    vValue = oControl.getValue ? oControl.getValue() : "";
-            }
-
-            return vValue;
-        },
-
-        _hasValueChanged: function (vOriginal, vCurrent, sFieldType) {
-            // Normalizar para evitar falsos positivos
-            var sOriginal = String(vOriginal || "").trim();
-            var sCurrent = String(vCurrent || "").trim();
-
-            // Caso especial para fechas
-            if (sFieldType === "F") {
-                var dOriginal = sOriginal ? new Date(sOriginal) : null;
-                var dCurrent = sCurrent ? new Date(sCurrent) : null;
-
-                if (!dOriginal && !dCurrent) return false;
-                if (!dOriginal || !dCurrent) return true;
-
-                return dOriginal.toISOString().split('T')[0] !== dCurrent.toISOString().split('T')[0];
-            }
-
-            // Caso especial para attachments
-            if (sFieldType === "A") {
-                // Si el valor actual es null, significa que se eliminó
-                if (sCurrent === "null" || vCurrent === null) {
-                    return true;
-                }
-                // Si el valor actual es "NEW_FILE", significa que hay un archivo nuevo
-                if (sCurrent === "NEW_FILE") {
-                    return true;
-                }
-                // Si los IDs son diferentes
-                return sOriginal !== sCurrent;
-            }
-
-            // Para el resto de campos, comparación directa
-            return sOriginal !== sCurrent;
-        },
-
         _buildFieldEntityPath: function (sDM0001ExternalCode, sEffectiveStartDate, sFieldExternalCode) {
             var sFormattedDate = formatter._formatDateForEntityPath(sEffectiveStartDate);
 
@@ -256,39 +196,6 @@ sap.ui.define([
                 `cust_INETUM_SOL_DM_0001_effectiveStartDate=datetime'${sFormattedDate}',` +
                 `cust_INETUM_SOL_DM_0001_externalCode='${sDM0001ExternalCode}',` +
                 `externalCode='${sFieldExternalCode}')`;
-
-            return sEntityPath;
-        },
-
-
-        getDynamicFieldFromC0001: async function (sExternalCode, vEffectiveStartDate) {
-            const oModel = this._oController.getOwnerComponent().getModel();
-
-            try {
-                const sEntity = this._buildC0001EntityPath(sExternalCode, vEffectiveStartDate);
-                const oResponse = await Service.readDataERP(
-                    sEntity,
-                    oModel,
-                    [],
-                    { bParam: true, oParameter: { "$format": "json" } }
-                );
-
-                return oResponse.data;
-
-            } catch (e) {
-                console.error("Error en getDynamicFieldFromC0001:", e);
-                throw e;
-            }
-        },
-
-        _buildC0001EntityPath: function (sExternalCode, vEffectiveStartDate) {
-            // Normalizamos la fecha con el formatter
-            var sFormattedDate = formatter._formatDateForEntityPath(vEffectiveStartDate);
-
-            // Armamos el path con la fecha + externalCode
-            var sEntityPath = `/cust_INETUM_SOL_C_0001(` +
-                `effectiveStartDate=datetime'${sFormattedDate}',` +
-                `externalCode=${sExternalCode}L)`;
 
             return sEntityPath;
         },
@@ -415,52 +322,54 @@ sap.ui.define([
 
         _onSaveChanges: function (oSolicitud, oDetailView) {
             var that = this;
-            
+
             //  validar el formulario
             if (!this.validateForm()) {
                 const sErrorMessage = this.oResourceBundle.getText("validation.fillMandatoryFields");
                 Util.onShowMessage(sErrorMessage, "error");
                 return;
-            }        
-        
+            }
+
             var aChangedFields = this._getChangedFields();
             var oAttachmentChange = this._getAttachmentChanges();
-        
+
             if (aChangedFields.length === 0 && !oAttachmentChange) {
                 MessageToast.show(this.oResourceBundle.getText("noChangesDetected"));
                 return;
-            }        
-        
+            }
+
             const oDialogModel = new JSONModel({
                 icon: "sap-icon://save",
                 type: this.oResourceBundle.getText("saveConfirmation"),
                 state: "Information",
                 message: this.oResourceBundle.getText("saveChangesConfirmation"),
                 acceptText: this.oResourceBundle.getText("save"),
-                cancelText: this.oResourceBundle.getText("cancel")
-            });        
-           
+                cancelText: this.oResourceBundle.getText("cancel"),
+                showAddCommentLink: true
+            });
+
             DialogManager.open(this._oMainView, oDialogModel, {
-                onAccept: function(sComment) {                  
+                onAccept: function (sComment) {
                     that._performSave(oSolicitud, oDetailView, aChangedFields, oAttachmentChange);
                 },
-                onCancel: function() {
+                onCancel: function () {
                     console.log("Guardado cancelado por el usuario");
                 }
-            }).catch(function(error) {
+            }).catch(function (error) {
                 console.log("Guardado cancelado por el usuario");
             });
         },
 
-        _performSave: function(oSolicitud, oDetailView, aChangedFields, oAttachmentChange) {
+        _performSave: function (oSolicitud, oDetailView, aChangedFields, aAttachmentChanges) {
             var that = this;
-            Util.showBI(true);        
-            const oModel = this._oController.getOwnerComponent().getModel();        
-      
+            Util.showBI(true);
+            const oModel = this._oController.getOwnerComponent().getModel();
+
+            // Guardar campos normales (no attachments)
             var aNormalChangedFields = aChangedFields.filter(function (change) {
                 return change.fieldData.cust_fieldtype !== 'A';
-            });        
-    
+            });
+
             aNormalChangedFields.forEach(function (change) {
                 var sFieldPath = that._buildFieldEntityPath(
                     oSolicitud.externalCode,
@@ -469,48 +378,239 @@ sap.ui.define([
                 );
                 oModel.update(sFieldPath, { cust_value: change.newValue || "" });
             });
-              
-            if (oAttachmentChange) {
-                var sAttachmentFieldPath = that._buildFieldEntityPath(
-                    oSolicitud.externalCode,
-                    oSolicitud.effectiveStartDate,
-                    oAttachmentChange.fieldData.externalCode
+
+            // Procesar attachments si hay cambios
+            if (aAttachmentChanges && aAttachmentChanges.length > 0) {
+
+                this._processAttachmentsOneByOne(
+                    oSolicitud,
+                    aAttachmentChanges,
+                    oModel,
+                    function () {
+                        setTimeout(function () {
+                            that._finalizeUpdate(oSolicitud, oDetailView);
+                        }, 1000);
+                    },
+                    function (error) {
+                        console.error("Error procesando attachments:", error);
+                        MessageToast.show("Error al procesar archivos: " + (error.message || error));
+                        Util.showBI(false);
+                    }
                 );
-        
-                switch (oAttachmentChange.action) {
-                    case "upload":
-                        const oDatos_Adjunto = {
-                            fileName: oAttachmentChange.file.nombre,
-                            fileContent: oAttachmentChange.file.contenido,
-                            module: "GENERIC_OBJECT",
-                            userId: this._oController.oCurrentUser.name
-                        };
-        
-                        oModel.create("/Attachment", oDatos_Adjunto, {
-                            success: function (oData) {
-                                var sNewAttachmentId = oData.attachmentId || "";
-                                oModel.update(sAttachmentFieldPath, { cust_value: sNewAttachmentId });
+            } else {
+                setTimeout(function () {
+                    that._finalizeUpdate(oSolicitud, oDetailView);
+                }, 1000);
+            }
+        },
+
+        _processAttachmentsOneByOne: function (oSolicitud, aAttachmentChanges, oModel, fnSuccess, fnError) {
+            const that = this;
+
+            const iTotalOperations = aAttachmentChanges.length;
+            let iCompletedOperations = 0;
+            let bHasError = false;
+
+            if (iTotalOperations === 0) {
+                fnSuccess();
+                return;
+            }
+            // Función para verificar si se completaron todas las operaciones
+            const checkComplete = function () {
+                iCompletedOperations++;
+
+                if (iCompletedOperations === iTotalOperations && !bHasError) {
+                    fnSuccess();
+                }
+            };
+
+
+            aAttachmentChanges.forEach(function (oChange, index) {
+                if (bHasError) return;
+
+                if (oChange.action === "upload") {
+                    that._uploadAndCreateRecord(
+                        oSolicitud,
+                        oChange,
+                        oModel,
+                        function () {
+                            checkComplete();
+                        },
+                        function (error) {
+                            if (!bHasError) {
+                                bHasError = true;
+                                console.error(`[${index + 1}/${iTotalOperations}] Error:`, error);
+                                fnError(error);
+                            }
+                        }
+                    );
+                } else if (oChange.action === "delete") {
+                    // Desactivar registro DM_0003
+                    that._eliminarRegistroDM0003(
+                        oSolicitud,
+                        oChange,
+                        oModel,
+                        function () {
+                            checkComplete();
+                        },
+                        function (error) {
+                            if (!bHasError) {
+                                bHasError = true;
+                                console.error(`[${index + 1}/${iTotalOperations}] Error:`, error);
+                                fnError(error);
+                            }
+                        }
+                    );
+                }
+            });
+        },
+
+        _uploadAndCreateRecord: function (oSolicitud, oChange, oModel, fnSuccess, fnError) {
+            const that = this;
+
+            // Subir el archivo a /Attachment
+            const oDatosAdjunto = {
+                fileName: oChange.file.nombre,
+                fileContent: oChange.file.contenido,
+                module: "GENERIC_OBJECT",
+                userId: "SFAPI"
+            };
+
+            oModel.create("/Attachment", oDatosAdjunto, {
+                success: function (oData) {
+                    const sAttachmentId = oData.attachmentId;
+
+                    // Crear registro DM_0003
+                    that._createDM0003Record(
+                        oSolicitud,
+                        oChange.fieldData,
+                        sAttachmentId,
+                        oModel,
+                        fnSuccess,
+                        fnError
+                    );
+                },
+                error: function (oError) {
+                    console.error("Error subiendo archivo:", oError);
+                    fnError(oError);
+                }
+            });
+        },
+
+        _eliminarRegistroDM0003: function (oSolicitud, oChange, oModel, fnSuccess, fnError) {
+            const that = this;
+            const sAttachmentId = oChange.oldAttachmentId;
+
+            const aFilters = [
+                new Filter("cust_INETUM_SOL_DM_0001_externalCode", FilterOperator.EQ, oSolicitud.externalCode),
+                new Filter("cust_value", FilterOperator.EQ, sAttachmentId),
+                new Filter("cust_fieldtype", FilterOperator.EQ, "A"),
+                new Filter("cust_status", FilterOperator.EQ, "A")
+            ];
+
+            oModel.read("/cust_INETUM_SOL_DM_0003", {
+                filters: aFilters,
+                success: function (oData) {
+                    if (oData.results && oData.results.length > 0) {
+                        const oRecord = oData.results[0];
+
+                        const sRecordPath = that._buildFieldEntityPath(
+                            oSolicitud.externalCode,
+                            oSolicitud.effectiveStartDate,
+                            oRecord.externalCode
+                        );
+
+                        // ELIMINAR el registro usando submitChanges
+                        oModel.remove(sRecordPath);
+
+                        oModel.submitChanges({
+                            success: function (oResponse) {
+                                if (fnSuccess) fnSuccess();
                             },
-                            error: function (oError) { 
-                                console.error("Error al crear adjunto", oError); 
+                            error: function (oError) {
+                                console.error("Error eliminando DM_0003:", oError);
+                                if (fnError) fnError(oError);
                             }
                         });
-                        break;
-        
-                    case "delete":
-                        oModel.update(sAttachmentFieldPath, { cust_value: "" });
-                        break;
+                    } else {
+                        console.warn("No se encontró registro DM_0003");
+                        if (fnSuccess) fnSuccess();
+                    }
+                },
+                error: function (oError) {
+                    console.error("Error buscando DM_0003:", oError);
+                    if (fnError) fnError(oError);
                 }
-            }        
-           
-            setTimeout(function () {
-                that._finalizeUpdate(oSolicitud, oDetailView);
-            }, 2000);
+            });
         },
+
+        _createDM0003Record: function (oSolicitud, oFieldData, sAttachmentId, oModel, fnSuccess, fnError) {
+            // Generar externalCode único
+            const sNewExternalCode = formatter.generarIdNumericoUnico();
+
+            // Datos del nuevo registro
+            const oNewRecord = {
+                cust_INETUM_SOL_DM_0001_externalCode: oSolicitud.externalCode,
+                cust_INETUM_SOL_DM_0001_effectiveStartDate: formatter._formatEffectiveStartDate(oSolicitud.effectiveStartDate),
+                externalCode: sNewExternalCode,
+                cust_value: sAttachmentId, // Solo un attachmentId
+                cust_etiqueta: oFieldData.cust_etiqueta,
+                cust_etiqueta_ca_ES: oFieldData.cust_etiqueta_ca_ES,
+                cust_etiqueta_defaultValue: oFieldData.cust_etiqueta_defaultValue,
+                cust_etiqueta_en_DEBUG: oFieldData.cust_etiqueta_en_DEBUG,
+                cust_etiqueta_en_US: oFieldData.cust_etiqueta_en_US,
+                cust_etiqueta_es_ES: oFieldData.cust_etiqueta_es_ES,
+                cust_fieldtype: "A",
+                cust_fieldLenght: oFieldData.cust_fieldLenght,
+                cust_mandatory: oFieldData.cust_mandatory || false,
+                cust_modif: oFieldData.cust_modif || false,
+                cust_ModificablePEmpleado: oFieldData.cust_ModificablePEmpleado || false,
+                cust_object: oFieldData.cust_object,
+                cust_tipoObject: oFieldData.cust_tipoObject,
+                cust_status: "A" // Activo
+            };
+
+
+            // Crear el registro
+            oModel.create("/cust_INETUM_SOL_DM_0003", oNewRecord, {
+                success: function (oData) {
+                    fnSuccess(oData);
+                },
+                error: function (oError) {
+                    console.error("Error creando registro DM_0003:", oError);
+
+                    // Intentar extraer mensaje de error
+                    let sErrorMsg = "Error desconocido";
+                    if (oError && oError.responseText) {
+                        try {
+                            const oErrorData = JSON.parse(oError.responseText);
+                            sErrorMsg = oErrorData.error?.message?.value || oError.message || sErrorMsg;
+                        } catch (e) {
+                            sErrorMsg = oError.message || oError.statusText || sErrorMsg;
+                        }
+                    }
+
+                    fnError(new Error(sErrorMsg));
+                }
+            });
+        },
+
 
         _finalizeUpdate: function (oSolicitud, oDetailView) {
             var that = this;
             const oModel = this._oController.getOwnerComponent().getModel();
+
+            if (this._fieldControlsMap) {
+                Object.keys(this._fieldControlsMap).forEach(function (sKey) {
+                    const oControl = that._fieldControlsMap[sKey];
+                    if (oControl && oControl.data) {
+                        oControl.data("pendingFiles", []);
+                        oControl.data("deletedAttachments", []);
+                    }
+                });
+            }
+
+            this._oController._archivosParaSubir = null;
 
             var sEntityPath = this._oController._buildEntityPath(
                 oSolicitud.externalCode,
@@ -551,44 +651,74 @@ sap.ui.define([
         },
 
         _getAttachmentChanges: function () {
-            var oOriginalModel = this._oMainView.getModel("originalFieldValues");
+            const aAllChanges = [];
 
-            if (!oOriginalModel) {
-                return null;
+            // Si existe el sistema agrupado, usarlo
+            if (this._groupedAttachmentsData) {
+                const oModel = this._groupedAttachmentsData.model;
+                const aPendingFiles = oModel.getProperty("/pendingFiles") || [];
+                const aDeletedAttachments = oModel.getProperty("/deletedAttachments") || [];
+                const aAttachmentFields = this._groupedAttachmentsData.attachmentFields || [];
+
+                // Obtener el primer campo de attachment para usar su metadata            
+                const oFirstField = aAttachmentFields[0];
+
+                // Agregar archivos nuevos
+                aPendingFiles.forEach(function (oFile) {
+                    aAllChanges.push({
+                        action: "upload",
+                        file: oFile,
+                        fieldData: oFirstField // Se usa el primer campo como referencia
+                    });
+                });
+
+                // Agregar archivos eliminados
+                aDeletedAttachments.forEach(function (oDeletedItem) {
+                    aAllChanges.push({
+                        action: "delete",
+                        fieldData: oFirstField,
+                        oldAttachmentId: oDeletedItem.attachmentId
+                    });
+                });
+
+                return aAllChanges.length > 0 ? aAllChanges : null;
             }
 
-            var aDynamicFields = oOriginalModel.getProperty("/dynamicFields");
+            // Fallback: Si no existe sistema agrupado, usar el método original
+            if (!this._dynamicFields || !this._fieldControlsMap) {
+                return aAllChanges;
+            }
 
-            // Buscar campos de tipo attachment
-            for (var i = 0; i < aDynamicFields.length; i++) {
-                var field = aDynamicFields[i];
-
+            this._dynamicFields.forEach(function (field) {
                 if (field.cust_fieldtype === "A") {
-                    var oControl = this._fieldControlsMap[field.externalCode];
+                    const oControl = this._fieldControlsMap[field.externalCode];
 
-                    if (!oControl) continue;
+                    if (!oControl) return;
 
-                    // Verificar si hay un nuevo archivo para subir
-                    if (this._oController._archivosParaSubir) {
-                        return {
+                    const aPendingFiles = oControl.data("pendingFiles") || [];
+                    const aDeletedAttachments = oControl.data("deletedAttachments") || [];
+
+                    // Agregar archivos nuevos
+                    aPendingFiles.forEach(function (oFile) {
+                        aAllChanges.push({
                             action: "upload",
-                            file: this._oController._archivosParaSubir,
+                            file: oFile,
                             fieldData: field
-                        };
-                    }
+                        });
+                    });
 
-                    // Verificar si se eliminó un archivo
-                    if (oControl.data("fileDeleted")) {
-                        return {
+                    // Agregar archivos eliminados
+                    aDeletedAttachments.forEach(function (sAttachmentId) {
+                        aAllChanges.push({
                             action: "delete",
                             fieldData: field,
-                            oldAttachmentId: field.cust_value || ""
-                        };
-                    }
+                            oldAttachmentId: sAttachmentId
+                        });
+                    });
                 }
-            }
+            }.bind(this));
 
-            return null;
+            return aAllChanges.length > 0 ? aAllChanges : null;
         },
 
         onSearchSteps: function (oSolicitud, iNewIndexStep) {
@@ -776,15 +906,22 @@ sap.ui.define([
                 return;
             }
             this._oSolicitud = oSolicitud;
+
+            const aAttachmentFields = [];
+            const aNormalFields = [];
+
             aDynamicFields.forEach(field => {
                 if (field.cust_fieldtype === "A") {
+                    aAttachmentFields.push(field);
                     iTotalAttachments++;
+                } else {
+                    aNormalFields.push(field);
                 }
             });
 
             for (let index = 0; index < aDynamicFields.length; index++) {
                 const oDynamicField = aDynamicFields[index];
-                const sLabel = Lenguaje.obtenerValorLocalizado(oDynamicField, "cust_etiqueta");
+                const sLabel = Lenguaje.obtenerValorLocalizado(oDynamicField, "cust_etiqueta").replace(/:$/, "");
                 let sValue = oDynamicField.cust_value || "";
                 let sDisplayValue = sValue;
                 let aOpcionesPicklist = [];
@@ -845,10 +982,27 @@ sap.ui.define([
                     sStatusEditable: oDynamicField.cust_modif,
                     mandatory: bEsObligatorio,
                     externalCode: oDynamicField.externalCode,
-                    picklistOptions: aOpcionesPicklist
+                    picklistOptions: aOpcionesPicklist,
+                    length: oDynamicField.cust_fieldLenght,
+                    sDefaultWidth: `25rem`                    
+
                 };
 
-                this._addField(oFieldConfig);
+                if (oDynamicField.cust_fieldtype !== "A") {
+                    this._addField(oFieldConfig);
+                }
+
+
+            }
+
+            if (aAttachmentFields.length > 0) {
+                await this.addGroupedAttachments({
+                    oForm: oForm,
+                    sLabel: Lenguaje.obtenerValorLocalizado(aAttachmentFields[0], "cust_etiqueta").replace(/:\s*$/, ""),
+                    mandatory: aAttachmentFields.some(f => f.cust_mandatory === true)
+                }, aAttachmentFields, oSolicitud, bEditMode);
+            
+                Util.showBI(false);
             }
 
             if (iTotalAttachments === 0) Util.showBI(false);
@@ -863,7 +1017,7 @@ sap.ui.define([
             let oField = null;
             let textoUrl = "";
 
-            // Si el valor está vacío, mostrar texto por defecto
+            // Si el valor está vacío, mostrar texto por defectodeleteFile
             if (sDisplayValue === undefined || sDisplayValue === null || sDisplayValue === "") {
                 sDisplayValue = "";
             }
@@ -887,26 +1041,28 @@ sap.ui.define([
 
             switch (String(oFieldConfig.fieldType)) {
                 case "P":
-                    //oField = this._createPicklistField(sFieldId, sDisplayValue, oFieldConfig.editable);
                     oField = this._createPicklistField(sFieldId, oFieldConfig);
                     break;
                 case "F":
-                    oField = this._createDateField(sFieldId, sDisplayValue, oFieldConfig.editable);
+                    oField = this._createDateField(sFieldId, sDisplayValue, oFieldConfig);
                     break;
                 case "I":
-                    oField = this._createInputField(sFieldId, sDisplayValue, oFieldConfig.editable);
+                    oField = this._createInputField(sFieldId, sDisplayValue, oFieldConfig);
                     break;
                 case "S":
-                    oField = this._createTextAreaField(sFieldId, sDisplayValue, oFieldConfig.editable);
-                    break;
-                case "A":
-                    oField = this._createFileUploaderField(sFieldId, oFieldConfig.fieldValue, oFieldConfig.editable);
+                    oField = this._createTextAreaField(sFieldId, sDisplayValue, oFieldConfig);
                     break;
                 case "URL":
                     oField = this._createURLField(sFieldId, sDisplayValue, oFieldConfig.editable, textoUrl);
                     break;
+                case "D":
+                    oField = this._createInputDecimal(sFieldId, sDisplayValue, oFieldConfig);
+                    break;
+                case "N":
+                    oField = this._createInputNumber(sFieldId, sDisplayValue, oFieldConfig);
+                    break;
                 default:
-                    oField = this._createInputField(sFieldId, sDisplayValue, oFieldConfig.editable);
+                    oField = this._createInputField(sFieldId, sDisplayValue, oFieldConfig);
             }
 
             if (oField && oFieldConfig.realValue !== undefined) {
@@ -923,22 +1079,13 @@ sap.ui.define([
         },
 
         _createPicklistField: function (sFieldId, oFieldConfig) {
-            /*
-            const oInput = new Input({
-                id: sFieldId,
-                value: sDisplayValue,
-                editable: bEditable,
-                enabled: true
-            });
-
-            return oInput;
-            */
 
             if (oFieldConfig.editable && oFieldConfig.picklistOptions && oFieldConfig.picklistOptions.length > 0) {
                 const oSelect = new Select({
                     id: sFieldId,
-                    width: "100%",
-                    selectedKey: oFieldConfig.realValue
+                    // width: oFieldConfig.length ? `${oFieldConfig.length}rem` : undefined,
+                    selectedKey: oFieldConfig.realValue,
+                    width: oFieldConfig.sDefaultWidth
                 });
 
                 const oOptionsModel = new JSONModel(oFieldConfig.picklistOptions);
@@ -958,110 +1105,64 @@ sap.ui.define([
                 const oInput = new Input({
                     id: sFieldId,
                     value: oFieldConfig.sValue,
-                    editable: false
+                    editable: false,
+                    width: oFieldConfig.sDefaultWidth
                 });
                 return oInput;
             }
 
         },
 
-        _createInputField: function (sFieldId, sDisplayValue, bEditable) {
+        _createInputField: function (sFieldId, sDisplayValue, oFieldConfig) {
             return new Input({
                 id: sFieldId,
                 value: sDisplayValue,
-                editable: bEditable,
-                enabled: true
+                editable: oFieldConfig.editable,
+                enabled: true,
+                maxLength: Number(oFieldConfig.length) || 100,
+                width: oFieldConfig.length ? `${oFieldConfig.length}rem` : undefined
             });
         },
 
-        _createDateField: function (sFieldId, sDisplayValue, bEditable) {
+        _createDateField: function (sFieldId, sDisplayValue, oFieldConfig) {
             return new DatePicker({
                 id: sFieldId,
                 value: sDisplayValue,
-                editable: bEditable,
+                editable: oFieldConfig.editable,
                 displayFormat: "dd/MM/yyyy",
-                valueFormat: "yyyy-MM-dd"
+                valueFormat: "yyyy-MM-dd",
+                width: oFieldConfig.length ? `${oFieldConfig.length}rem` : `10rem`,
+
             });
         },
 
-        _createTextAreaField: function (sFieldId, sDisplayValue, bEditable) {
-            return new TextArea({
+        _createTextAreaField: function (sFieldId, sDisplayValue, oFieldConfig) {
+            const iLength = parseInt(oFieldConfig.length, 10) || 0;
+            const bEditable = oFieldConfig.editable !== false;
+
+            if (iLength > 0 && iLength <= 200) {
+                // Input para textos cortos
+                return new sap.m.Input({
+                    id: sFieldId,
+                    maxLength: iLength,
+                    type: sap.m.InputType.Text,
+                    width: `${Math.min(iLength, 40) * 0.9}rem`,
+                    value: sDisplayValue,
+                    editable: bEditable
+                });
+            }
+
+            // TextArea para textos largos
+            return new sap.m.TextArea({
                 id: sFieldId,
                 value: sDisplayValue,
+                rows: 3,
+                maxLength: iLength || 0,
                 editable: bEditable,
-                rows: 3
+                width: oFieldConfig.sDefaultWidth
             });
         },
 
-        _createFileUploaderField: function (sFieldId, sCustValue, bEditable) {
-            let that = this;
-            const oUpload = new UploadCollection({
-                mode: sap.m.ListMode.SingleSelectMaster,
-                id: sFieldId,
-                multiple: false,
-                uploadEnabled: bEditable,
-                terminationEnabled: bEditable,
-                instantUpload: bEditable,
-                showSeparators: "All",
-                fileType: ["pdf"],
-                mimeType: ["application/pdf"],
-                maximumFileSize: 10, // 10 MB máximo
-                change: this._oController.onDetectorAdjunto.bind(this._oController),
-                fileDeleted: function (oEvent) {
-                    that._onFileDeleted(oEvent, sFieldId, sCustValue);
-                },
-            });
-
-            oUpload.data("originalAttachmentId", sCustValue || "");
-
-            const oModel = this._oController.getOwnerComponent().getModel();
-
-            let oAttachmentsModel = this._oController.getView().getModel("attachmentsModel");
-            if (!oAttachmentsModel) {
-                oAttachmentsModel = new sap.ui.model.json.JSONModel({
-                    aAdjuntos: []
-                });
-                this._oController.getView().setModel(oAttachmentsModel, "attachmentsModel");
-            }
-
-            if (sCustValue && sCustValue.trim() !== "") {
-                const aFilter = [new Filter("attachmentId", FilterOperator.EQ, sCustValue)];
-
-                Service.readDataERP("/Attachment", oModel, aFilter)
-                    .then(data => {
-                        if (data?.data?.results?.length) {
-                            let aAttachments = oAttachmentsModel.getProperty("/aAdjuntos");
-
-                            data.data.results.forEach(oNewAttachment => {
-                                const bExists = aAttachments.some(item =>
-                                    item.attachmentId === oNewAttachment.attachmentId
-                                );
-
-                                if (!bExists) {
-                                    aAttachments.push(oNewAttachment);
-                                }
-                            });
-
-                            oAttachmentsModel.setProperty("/aAttachments", aAttachments);
-
-                            const oItem = this._viewAttachment(data.data.results[0], bEditable);
-                            oUpload.addItem(oItem);
-
-                            Util.showBI(false);
-                        } else {
-                            Util.showBI(false);
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error cargando attachment:", error.message);
-                        Util.showBI(false);
-                    });
-            } else {
-                Util.showBI(false);
-            }
-
-            return oUpload;
-        },
 
         _createURLField: function (sFieldId, sDisplayValue, bEditable, textoUrl) {
 
@@ -1098,50 +1199,396 @@ sap.ui.define([
             }
         },
 
-        _onFileDeleted: function (oEvent, sFieldId, sAttachmentId) {
-            const oItem = oEvent.getParameter("item");
-            const oUploadCollection = sap.ui.getCore().byId(sFieldId);
-            oUploadCollection.removeItem(oItem);
-            // Marcar que el archivo fue eliminado (para guardado posterior)
-            oUploadCollection.data("fileDeleted", true);
-            oUploadCollection.data("deletedAttachmentId", sAttachmentId);
-
-            MessageToast.show(this.oResourceBundle.getText("fileDeletedSuccessfully"));
+        _createInputDecimal: function (sFieldId, sDisplayValue, oFieldConfig) {
+            return new Input({
+                id: sFieldId,
+                value: oFieldConfig.cust_value ?? oFieldConfig.realValue ?? "",
+                maxLength: oFieldConfig.length || 15,
+                width: oFieldConfig.sDefaultWidth,
+                liveChange: (oEvent) => {
+                    const oInput = oEvent.getSource();
+                    let sValue = oInput.getValue().replace(/[^0-9.]/g, '');
+                    // Lógica para asegurar un solo punto decimal
+                    const aParts = sValue.split('.');
+                    if (aParts.length > 2) {
+                        sValue = aParts[0] + '.' + aParts.slice(1).join('');
+                    }
+                    oInput.setValue(sValue);
+                }
+            });
 
         },
 
+        _createInputNumber: function (sFieldId, sDisplayValue, oFieldConfig) {
+            return new Input({
+                id: sFieldId,
+                value: sDisplayValue,
+                editable: oFieldConfig.editable,
+                enabled: true,
+                maxLength: Number(oFieldConfig.length) || 100,
+                width: oFieldConfig.length ? `${oFieldConfig.length}rem` : undefined,
+                liveChange: (oEvent) => oEvent.getSource().setValue(oEvent.getParameter("value").replace(/[^0-9]/g, ''))
+            });
+        },
 
-        _viewAttachment: function (attachment, bEditable) {
-            const oItem = new sap.m.UploadCollectionItem({
-                fileName: attachment.fileName,
-                mimeType: attachment.mimeType,
-                url: this._crearDataURI(attachment.mimeType, attachment.fileContent),
-                attributes: [
-                    new sap.m.ObjectAttribute({
-                        title: this.oResourceBundle.getText("download"),
-                        text: attachment.fileName,
-                        active: true
+        addGroupedAttachments: async function (oFieldConfig, aAttachmentFields, oSolicitud, bEditMode) {
+            const that = this;
+            const user = this._oController.oCurrentUser.name;
+            const bUsuarioEsCreador = (user === oSolicitud.createdBy);
+
+            // Verificar si algún campo es editable
+            let bAnyEditable = this._checkIfAnyFieldIsEditable(aAttachmentFields, bEditMode, oSolicitud, bUsuarioEsCreador);
+
+            // Crear modelo para los adjuntos
+            const oAttachmentsModel = new JSONModel({
+                items: [],
+                pendingFiles: [],
+                deletedAttachments: [],
+                uploadEnabled: bAnyEditable
+            });
+
+            // Crear tabla de adjuntos
+            const sTableId = "grouped_attachments_table_" + Date.now();
+            const oTable = new Table({
+                id: sTableId,
+                mode: bAnyEditable ? "Delete" : "None",
+                growing: false,
+                columns: [
+                    new Column({
+                        width: "3rem",
+                        hAlign: "Center",
+                        header: new Text({ text: "" })
+                    }),
+                    new Column({
+                        header: new Text({ text: this.oResourceBundle.getText("fileName") || "Nombre del archivo" }),
+                        width: "50%"
+                    }),
+                    new Column({
+                        header: new Text({ text: this.oResourceBundle.getText("fileType") || "Tipo" }),
+                        width: "20%",
+                        hAlign: "Center"
+                    }),
+                    new Column({
+                        header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
+                        width: "20%",
+                        hAlign: "Right"
                     })
                 ],
-                enableEdit: bEditable,
-                enableDelete: bEditable,
-                visibleEdit: false,
-                visibleDelete: bEditable
+                delete: function (oEvent) {
+                    that._onDeleteGroupedAttachment(oEvent, oTable, oAttachmentsModel);
+                }
             });
 
-            oItem.attachPress(function (oEvent) {
-                oEvent.preventDefault();
-                const sDataURI = this.getUrl();
-                const sFileName = this.getFileName();
-                const a = document.createElement('a');
-                a.href = sDataURI;
-                a.download = sFileName;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+            // Vincular items al modelo
+            oTable.bindItems({
+                path: "attachments>/items",
+                template: new ColumnListItem({
+                    cells: [
+                        new Icon({
+                            src: {
+                                path: "attachments>mediaType",
+                                formatter: formatter._getFileIcon
+                            },
+                            size: "2rem",
+                            color: "Default"
+                        }),
+                        new Link({
+                            text: "{attachments>fileName}",
+                            href: "#",
+                            enabled: true,
+                            press: function (oEvent) {
+                                oEvent.preventDefault(); // Prevenir navegación
+
+                                // Obtener datos del contexto
+                                const oSource = oEvent.getSource();
+                                const oContext = oSource.getBindingContext("attachments");
+                                const oFileData = oContext.getObject();
+
+                                // Crear elemento  temporal para descarga
+                                const sDataURI = oFileData.url;
+                                const sFileName = oFileData.fileName;
+
+                                const a = document.createElement('a');
+                                a.href = sDataURI;
+                                a.download = sFileName;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                            }
+                        }),
+                        new Text({
+                            text: {
+                                path: "attachments>mediaType",
+                                formatter: formatter._formatFileType
+                            }
+                        }),
+                        new Text({
+                            text: {
+                                path: "attachments>fileSize",
+                                formatter: formatter._formatFileSize
+                            }
+                        })
+                    ]
+                })
             });
 
-            return oItem;
+            oTable.setModel(oAttachmentsModel, "attachments");
+
+            const sFileUploaderId = "grouped_file_uploader_" + Date.now();
+            const oFileUploader = new FileUploader({
+                id: sFileUploaderId,
+                multiple: true,
+                fileType: ["jpeg", "jpg", "png", "pdf"],
+                mimeType: ["application/pdf", "image/jpeg", "image/jpg", "image/png"],
+                maximumFileSize: 10,
+                visible: true,
+                width: "0px",
+                change: function (oEvent) {
+                    that._onGroupedFilesSelected(oEvent, oFileUploader, oTable, oAttachmentsModel);
+                }
+            }).addStyleClass("sapUiHidden");
+
+            // Crear botón para agregar archivos
+            const oUploadButton = new Button({
+                text: this.oResourceBundle.getText("addAttachments") || "Agregar archivos",
+                icon: "sap-icon://attachment",
+                type: "Emphasized",
+                visible: bAnyEditable,
+                press: function () {
+                    // Simular click en FileUploader
+                    oFileUploader.$().find("input[type=file]").trigger("click");
+                }
+            });
+
+            const oContent = new FlexBox({
+                direction: "Column",
+                items: [
+                    oUploadButton,
+                    oFileUploader,
+                    oTable
+                ]
+            });
+
+            // Cargar adjuntos existentes
+            const aAllAttachments = await this._loadAllGroupedAttachments(aAttachmentFields, bAnyEditable);
+            oAttachmentsModel.setProperty("/items", aAllAttachments);
+
+            // Crear panel expandible
+            const oPanel = new Panel({
+                width: "60%",
+                headerText: `${this.oResourceBundle.getText("attachments")} (${aAllAttachments.length})`,
+                expandable: true,
+                expanded: false,
+                content: [oContent]
+            });
+            
+            this._oPanel = oPanel;
+
+            // Actualizar contador cuando cambien los items
+            oAttachmentsModel.attachPropertyChange(function (oEvent) {
+                if (oEvent.getParameter("path") === "/items") {
+                    const iCount = oAttachmentsModel.getProperty("/items").length;
+                    oPanel.setHeaderText(`${that.oResourceBundle.getText("attachments")} (${iCount})`);
+                     
+                }
+            });
+
+            // Agregar al formulario
+            const oLabel = new Label({
+                text: oFieldConfig.sLabel,
+                required: !!oFieldConfig.mandatory,
+                labelFor: oTable.getId()
+            });
+
+            oFieldConfig.oForm.addContent(oLabel);
+            oFieldConfig.oForm.addContent(oPanel);
+
+           this._groupedAttachmentsData = {
+                table: oTable,
+                model: oAttachmentsModel,
+                fileUploader: oFileUploader,
+                attachmentFields: aAttachmentFields,
+                panel: oPanel
+            };
+
+            // Mapear cada campo individual al control agrupado
+            aAttachmentFields.forEach(function (oAttField) {
+                that._fieldControlsMap[oAttField.externalCode] = oTable;
+            });
+
+            return oTable;
+        },
+
+        _checkIfAnyFieldIsEditable: function (aAttachmentFields, bEditMode, oSolicitud, bUsuarioEsCreador) {
+            return aAttachmentFields.some(oField => {
+                let bEditable = oField.cust_modif === true && bEditMode && oSolicitud.cust_status === "RA";
+                if (bUsuarioEsCreador && !oField.cust_ModificablePEmpleado) {
+                    bEditable = false;
+                }
+                return bEditable;
+            });
+        },
+
+        _loadAllGroupedAttachments: async function (aAttachmentFields, bCanDelete) {
+            const aAllAttachments = [];
+            const oModel = this._oController.getOwnerComponent().getModel();
+
+            for (const oAttField of aAttachmentFields) {
+                const sCustValue = oAttField.cust_value;
+
+                if (sCustValue && sCustValue.trim() !== "") {
+                    const aFilter = [new Filter("attachmentId", FilterOperator.EQ, sCustValue)];
+
+                    try {
+                        const data = await Service.readDataERP("/Attachment", oModel, aFilter);
+
+                        if (data?.data?.results?.length) {
+                            data.data.results.forEach(oAttachment => {
+                                aAllAttachments.push({
+                                    fileName: oAttachment.fileName,
+                                    mediaType: oAttachment.mimeType,
+                                    fileSize: oAttachment.fileSize || 0,
+                                    url: this._crearDataURI(oAttachment.mimeType, oAttachment.fileContent),
+                                    fileContent: oAttachment.fileContent,
+                                    attachmentId: oAttachment.attachmentId,
+                                    fileId: oAttachment.fileId,
+                                    fieldExternalCode: oAttField.externalCode,
+                                    isExisting: true,
+                                    canDelete: bCanDelete
+                                });
+                            });
+                        }
+                    } catch (error) {
+                        console.error("Error cargando attachments:", error);
+                        MessageBox.error("Error al cargar los adjuntos: " + error.message);
+                    }
+                }
+            }
+
+            return aAllAttachments;
+        },
+
+        _onGroupedFilesSelected: function (oEvent, oFileUploader, oTable, oModel) {
+            const aFiles = oEvent.getParameter("files");
+
+            if (!aFiles || aFiles.length === 0) {
+                return;
+            }
+
+            const aItems = oModel.getProperty("/items");
+            const aPending = oModel.getProperty("/pendingFiles");        
+            const iMaxSize = 10 * 1024 * 1024; // 10MB
+
+            let iProcessedFiles = 0;
+            const iTotalFiles = aFiles.length;
+
+            for (let i = 0; i < aFiles.length; i++) {
+                const oFile = aFiles[i];
+
+                // Validar tamaño
+                if (oFile.size > iMaxSize) {
+                    MessageToast.show(`${this.oResourceBundle.getText("veryLargeFile")} (${oFile.name})`);
+                    continue;
+                }
+
+                // Leer el archivo
+                const oReader = new FileReader();
+                oReader.onload = (e) => {
+                    const sBase64Content = e.target.result.split(",")[1];
+
+                    const oNewFile = {
+                        nombre: oFile.name,
+                        contenido: sBase64Content,
+                        mimeType: oFile.type,
+                        size: oFile.size,
+                        tempId: Date.now() + "_" + i
+                    };
+
+                    // Agregar a items visibles
+                    const oNewItem = {
+                        fileName: oFile.name,
+                        mediaType: oFile.type,
+                        fileSize: oFile.size,
+                        url: null,
+                        isExisting: false,
+                        canDelete: true,
+                        tempId: oNewFile.tempId
+                    };
+
+                    aItems.push(oNewItem);
+                    aPending.push(oNewFile);
+
+                    oModel.setProperty("/items", aItems);
+                    oModel.setProperty("/pendingFiles", aPending);
+
+                    iProcessedFiles++;
+                    if (iProcessedFiles === iTotalFiles) {
+                        const sMessage = iTotalFiles === 1
+                            ? this.oResourceBundle.getText("fileReadyToBeSaved")
+                            : (this.oResourceBundle.getText("filesReadyToBeSaved")).replace("{0}", iTotalFiles);
+                        MessageToast.show(sMessage);
+                    }
+                };
+
+                oReader.readAsDataURL(oFile);
+            }
+            oFileUploader.clear();
+        },
+
+        _onDeleteGroupedAttachment: function (oEvent, oTable, oModel) {
+            let that = this;
+            const oItem = oEvent.getParameter("listItem");
+            const oContext = oItem.getBindingContext("attachments");
+            const sPath = oContext.getPath();
+            const iIndex = parseInt(sPath.split("/").pop());
+
+            const aItems = oModel.getProperty("/items");
+            const oItemData = aItems[iIndex];
+
+            if (!oItemData) {
+                return;
+            }
+
+            const oDialogModel = new JSONModel({
+                icon: "sap-icon://message-information",
+                type: this.oResourceBundle.getText("confirmDelete"),
+                state: "Information",
+                message: this.oResourceBundle.getText("deleteFile", [oItemData.fileName]),
+                acceptText: this.oResourceBundle.getText("delete"),
+                cancelText: this.oResourceBundle.getText("cancel"),
+                showAddCommentLink: false
+            });
+
+            DialogManager.open(this._oMainView, oDialogModel, {
+                onAccept: function () {
+                    if (oItemData.isExisting) {
+                        const aDeleted = oModel.getProperty("/deletedAttachments");
+                        aDeleted.push(oItemData);
+                        oModel.setProperty("/deletedAttachments", aDeleted);
+                    } else {
+                        // Si es un archivo pendiente, eliminarlo de pendientes
+                        const aPending = oModel.getProperty("/pendingFiles");
+                        const iPendingIndex = aPending.findIndex(p => p.tempId === oItemData.tempId);
+                        if (iPendingIndex > -1) {
+                            aPending.splice(iPendingIndex, 1);
+                            oModel.setProperty("/pendingFiles", aPending);
+                        }
+                    }
+                    // Remover del modelo
+                    aItems.splice(iIndex, 1);
+                    oModel.setProperty("/items", aItems);
+
+                    const iCount = aItems.length;
+                    that._oPanel.setHeaderText(`${that.oResourceBundle.getText("attachments")} (${iCount})`);
+                    MessageToast.show(that.oResourceBundle.getText("fileDeletedSuccessfully"));
+                },
+                onCancel: function () {
+                    console.log("Guardado cancelado por el usuario");
+                }
+            }).catch(function (error) {
+                console.log("Guardado cancelado por el usuario");
+            });
+
         },
 
         _crearDataURI: function (sMimeType, sBase64) {
@@ -1149,27 +1596,28 @@ sap.ui.define([
         },
 
         _onCancelRequest: function (oSolicitud, oDetailView) {
-            var that = this;        
-        
-            if (!this._oController || !this._oController.onCancelarSolicitudFromDetail) {                
+            var that = this;
+
+            if (!this._oController || !this._oController.onCancelarSolicitudFromDetail) {
                 return;
-            }        
-           
+            }
+
             const oDialogModel = new JSONModel({
                 icon: "sap-icon://message-warning",
                 type: this.oResourceBundle.getText("confirmCancel"),
                 state: "Warning",
                 message: this.oResourceBundle.getText("cancelRequestConfirmation", [oSolicitud.cust_nombreSol]),
                 acceptText: this.oResourceBundle.getText("aceptar"),
-                cancelText: this.oResourceBundle.getText("cancel")
-            });        
-          
+                cancelText: this.oResourceBundle.getText("cancel"),
+                showAddCommentLink: true
+            });
+
             DialogManager.open(this._oMainView, oDialogModel, {
-                onAccept: function(sComment) {                   
+                onAccept: function (sComment) {
                     that._oController.onCancelarSolicitudFromDetail(
-                        oSolicitud.cust_nombreSol, 
+                        oSolicitud.cust_nombreSol,
                         oSolicitud.externalCode,
-                        sComment  
+                        sComment
                     ).then(function (bWasCancelled) {
                         if (bWasCancelled) {
                             MessageToast.show(that.oResourceBundle.getText("requestCancelled"));
@@ -1182,10 +1630,10 @@ sap.ui.define([
                         Util.showBI(false);
                     });
                 },
-                onCancel: function() {
+                onCancel: function () {
                     console.log("Cancelación de solicitud abortada por el usuario");
                 }
-            }).catch(function(error) {
+            }).catch(function (error) {
                 console.log("Cancelación de solicitud abortada por el usuario");
             });
         },
@@ -1220,18 +1668,12 @@ sap.ui.define([
             }, 500);
         },
 
-        /**
-         * Obtener referencia al controlador principal
-         */
-        getMainController: function () {
-            return this._oController;
-        },
-
-
         validateForm: function () {
             let bFormularioValido = true;
             const user = this._oController.oCurrentUser.name;
             const bUsuarioEsCreador = (user === this._oSolicitud.createdBy);
+
+            // Limpiar estados de error anteriores
             this._dynamicFields.forEach(function (field) {
                 const oControl = this._fieldControlsMap[field.externalCode];
                 if (oControl) {
@@ -1244,15 +1686,20 @@ sap.ui.define([
                 }
             }.bind(this));
 
+            // Validar campos normales
             for (const field of this._dynamicFields) {
 
+                if (field.cust_fieldtype === "A" && this._groupedAttachmentsData) {
+                    continue;
+                }
+
                 let bDebeValidarse = !!field.cust_mandatory;
+
                 if (bUsuarioEsCreador && !field.cust_ModificablePEmpleado) {
-                    bDebeValidarse = false; // Anulamos la validación
+                    bDebeValidarse = false;
                 }
 
                 if (bDebeValidarse) {
-
                     const oControl = this._fieldControlsMap[field.externalCode];
                     if (!oControl) continue;
 
@@ -1260,11 +1707,21 @@ sap.ui.define([
 
                     switch (field.cust_fieldtype) {
                         case "A":
-                            if (oControl.getItems && oControl.getItems().length > 0) bCampoValido = true;
+
+                            const aCurrentItems = oControl.getItems ? oControl.getItems() : [];
+                            const aPendingFiles = oControl.data("pendingFiles") || [];
+                            const iExistingFiles = aCurrentItems.filter(function (item) {
+                                return !item.data("isNewFile");
+                            }).length;
+                            const iNewFiles = aPendingFiles.length;
+                            const iTotalFiles = iExistingFiles + iNewFiles;
+                            bCampoValido = iTotalFiles > 0;
                             break;
+
                         case "P":
-                            if (oControl.getSelectedKey()) bCampoValido = true;
+                            if (oControl.getSelectedKey && oControl.getSelectedKey()) bCampoValido = true;
                             break;
+
                         default:
                             if (oControl.getValue && oControl.getValue().trim() !== "") bCampoValido = true;
                             break;
@@ -1275,11 +1732,43 @@ sap.ui.define([
                         if (field.cust_fieldtype === "A") {
                             oControl.addStyleClass("campoAdjuntoError");
                         } else if (typeof oControl.setValueState === "function") {
-                            // Usamos la variable importada
                             oControl.setValueState(ValueState.Error);
                         }
                     }
-                } 
+                }
+            }
+
+            // Validar tabla agrupada de attachments (SI EXISTE)
+            if (this._groupedAttachmentsData) {
+                const aAttachmentFields = this._groupedAttachmentsData.attachmentFields || [];
+                const bHayAlgunCampoObligatorio = aAttachmentFields.some(f => {
+                    let bEsObligatorio = !!f.cust_mandatory;
+                    if (bUsuarioEsCreador && !f.cust_ModificablePEmpleado) {
+                        bEsObligatorio = false;
+                    }
+                    return bEsObligatorio;
+                });
+
+                if (bHayAlgunCampoObligatorio) {
+                    const oModel = this._groupedAttachmentsData.model;
+                    const aItems = oModel.getProperty("/items") || [];
+
+                    if (aItems.length === 0) {
+                        bFormularioValido = false;
+                        // Marcar visualmente el panel como error
+                        const oPanel = this._groupedAttachmentsData.panel;
+                        if (oPanel) {
+                            oPanel.addStyleClass("sapUiFormFieldError");
+                        }
+                        MessageToast.show(this.oResourceBundle.getText("validation.attachmentRequired"));
+                    } else {
+                        // Quitar el estilo de error si ya no aplica
+                        const oPanel = this._groupedAttachmentsData.panel;
+                        if (oPanel && oPanel.hasStyleClass("sapUiFormFieldError")) {
+                            oPanel.removeStyleClass("sapUiFormFieldError");
+                        }
+                    }
+                }
             }
 
             return bFormularioValido;
