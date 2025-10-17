@@ -34,8 +34,8 @@ sap.ui.define([
     "sap/m/FlexBox",
     "sap/ui/unified/FileUploader",
     "sap/ui/core/Icon",
- 
-    
+
+
 ], function (BaseObject,
     formatter,
     View,
@@ -100,7 +100,7 @@ sap.ui.define([
                 }
 
                 // Cargar campos dinámicos DM_0003
-                var aDynamicFields = await this._loadDynamicFields(sSolicitudId);     
+                var aDynamicFields = await this._loadDynamicFields(sSolicitudId);
 
                 if (aDynamicFields.length === 0) Util.showBI(false);
 
@@ -984,7 +984,7 @@ sap.ui.define([
                     externalCode: oDynamicField.externalCode,
                     picklistOptions: aOpcionesPicklist,
                     length: oDynamicField.cust_fieldLenght,
-                    sDefaultWidth: `25rem`                    
+                    sDefaultWidth: `25rem`
 
                 };
 
@@ -1001,7 +1001,7 @@ sap.ui.define([
                     sLabel: Lenguaje.obtenerValorLocalizado(aAttachmentFields[0], "cust_etiqueta").replace(/:\s*$/, ""),
                     mandatory: aAttachmentFields.some(f => f.cust_mandatory === true)
                 }, aAttachmentFields, oSolicitud, bEditMode);
-            
+
                 Util.showBI(false);
             }
 
@@ -1265,14 +1265,15 @@ sap.ui.define([
                     }),
                     new Column({
                         header: new Text({ text: this.oResourceBundle.getText("fileType") || "Tipo" }),
-                        width: "20%",
+                        width: "30%",
                         hAlign: "Center"
-                    }),
-                    new Column({
-                        header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
-                        width: "20%",
-                        hAlign: "Right"
                     })
+                    // ,
+                    // new Column({
+                    //     header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
+                    //     width: "20%",
+                    //     hAlign: "Right"
+                    // })
                 ],
                 delete: function (oEvent) {
                     that._onDeleteGroupedAttachment(oEvent, oTable, oAttachmentsModel);
@@ -1321,13 +1322,14 @@ sap.ui.define([
                                 path: "attachments>mediaType",
                                 formatter: formatter._formatFileType
                             }
-                        }),
-                        new Text({
-                            text: {
-                                path: "attachments>fileSize",
-                                formatter: formatter._formatFileSize
-                            }
                         })
+                        // ,
+                        // new Text({
+                        //     text: {
+                        //         path: "attachments>fileSize",
+                        //         formatter: formatter._formatFileSize
+                        //     }
+                        // })
                     ]
                 })
             });
@@ -1375,13 +1377,13 @@ sap.ui.define([
 
             // Crear panel expandible
             const oPanel = new Panel({
-                width: "60%",
+                width: "80%",
                 headerText: `${this.oResourceBundle.getText("attachments")} (${aAllAttachments.length})`,
                 expandable: true,
                 expanded: false,
                 content: [oContent]
             });
-            
+
             this._oPanel = oPanel;
 
             // Actualizar contador cuando cambien los items
@@ -1389,7 +1391,7 @@ sap.ui.define([
                 if (oEvent.getParameter("path") === "/items") {
                     const iCount = oAttachmentsModel.getProperty("/items").length;
                     oPanel.setHeaderText(`${that.oResourceBundle.getText("attachments")} (${iCount})`);
-                     
+
                 }
             });
 
@@ -1403,7 +1405,7 @@ sap.ui.define([
             oFieldConfig.oForm.addContent(oLabel);
             oFieldConfig.oForm.addContent(oPanel);
 
-           this._groupedAttachmentsData = {
+            this._groupedAttachmentsData = {
                 table: oTable,
                 model: oAttachmentsModel,
                 fileUploader: oFileUploader,
@@ -1476,7 +1478,7 @@ sap.ui.define([
             }
 
             const aItems = oModel.getProperty("/items");
-            const aPending = oModel.getProperty("/pendingFiles");        
+            const aPending = oModel.getProperty("/pendingFiles");
             const iMaxSize = 10 * 1024 * 1024; // 10MB
 
             let iProcessedFiles = 0;
@@ -1541,7 +1543,6 @@ sap.ui.define([
             const oContext = oItem.getBindingContext("attachments");
             const sPath = oContext.getPath();
             const iIndex = parseInt(sPath.split("/").pop());
-
             const aItems = oModel.getProperty("/items");
             const oItemData = aItems[iIndex];
 
