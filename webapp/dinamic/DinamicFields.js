@@ -1265,14 +1265,15 @@ sap.ui.define([
                     }),
                     new Column({
                         header: new Text({ text: this.oResourceBundle.getText("fileType") || "Tipo" }),
-                        width: "20%",
+                        width: "30%",
                         hAlign: "Center"
-                    }),
-                    new Column({
-                        header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
-                        width: "20%",
-                        hAlign: "Right"
                     })
+                    // ,
+                    // new Column({
+                    //     header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
+                    //     width: "20%",
+                    //     hAlign: "Right"
+                    // })
                 ],
                 delete: function (oEvent) {
                     that._onDeleteGroupedAttachment(oEvent, oTable, oAttachmentsModel);
@@ -1321,13 +1322,14 @@ sap.ui.define([
                                 path: "attachments>mediaType",
                                 formatter: formatter._formatFileType
                             }
-                        }),
-                        new Text({
-                            text: {
-                                path: "attachments>fileSize",
-                                formatter: formatter._formatFileSize
-                            }
                         })
+                        // ,
+                        // new Text({
+                        //     text: {
+                        //         path: "attachments>fileSize",
+                        //         formatter: formatter._formatFileSize
+                        //     }
+                        // })
                     ]
                 })
             });
@@ -1375,7 +1377,7 @@ sap.ui.define([
 
             // Crear panel expandible
             const oPanel = new Panel({
-                width: "60%",
+                width: "80%",
                 headerText: `${this.oResourceBundle.getText("attachments")} (${aAllAttachments.length})`,
                 expandable: true,
                 expanded: false,
