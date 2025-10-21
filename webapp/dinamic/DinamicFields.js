@@ -779,11 +779,12 @@ sap.ui.define([
                 const oParametrosPicklist = {
                     bParam: true,
                     oParameter: {
-                        "$expand": "picklistOptions,picklistOptions/picklistLabels",
+                        "$filter": `picklist/picklistId eq '${sPicklistId}' and status eq 'ACTIVE'`,
+                        "$expand": "picklistLabels",
                         "$format": "json"
                     }
                 };
-                const sRutaEntidad = `/Picklist(picklistId='${sPicklistId}')`;
+                const sRutaEntidad = `/PicklistOption`;
                 const oRespuesta = await Service.readDataERP(sRutaEntidad, oModel, [], oParametrosPicklist);
 
                 const aOpciones = [];
@@ -795,8 +796,8 @@ sap.ui.define([
                 };
                 const sLocaleBuscado = mMap[sLang];
 
-                if (oRespuesta.data?.picklistOptions?.results) {
-                    oRespuesta.data.picklistOptions.results.forEach(oOption => {
+                if (oRespuesta.data?.results) {
+                    oRespuesta.data.results.forEach(oOption => {
                         const oLabelEncontrado = sLocaleBuscado
                             ? oOption.picklistLabels.results.find(label => label.locale === sLocaleBuscado)
                             : undefined;
@@ -1263,17 +1264,17 @@ sap.ui.define([
                         header: new Text({ text: this.oResourceBundle.getText("fileName") || "Nombre del archivo" }),
                         width: "50%"
                     }),
-                    new Column({
-                        header: new Text({ text: this.oResourceBundle.getText("fileType") || "Tipo" }),
-                        width: "30%",
-                        hAlign: "Center"
-                    })
                     // ,
                     // new Column({
-                    //     header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
-                    //     width: "20%",
-                    //     hAlign: "Right"
-                    // })
+                    //     header: new Text({ text: this.oResourceBundle.getText("fileType") || "Tipo" }),
+                    //     width: "30%",
+                    //     hAlign: "Center"
+                    // })                    
+                    new Column({
+                        header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
+                        width: "30%",
+                        hAlign: "Right"
+                    })
                 ],
                 delete: function (oEvent) {
                     that._onDeleteGroupedAttachment(oEvent, oTable, oAttachmentsModel);
@@ -1317,19 +1318,19 @@ sap.ui.define([
                                 document.body.removeChild(a);
                             }
                         }),
-                        new Text({
-                            text: {
-                                path: "attachments>mediaType",
-                                formatter: formatter._formatFileType
-                            }
-                        })
-                        // ,
                         // new Text({
                         //     text: {
-                        //         path: "attachments>fileSize",
-                        //         formatter: formatter._formatFileSize
+                        //         path: "attachments>mediaType",
+                        //         formatter: formatter._formatFileType
                         //     }
                         // })
+                        // ,
+                        new Text({
+                            text: {
+                                path: "attachments>fileSize",
+                                formatter: formatter._formatFileSize
+                            }
+                        })
                     ]
                 })
             });
@@ -1669,6 +1670,50 @@ sap.ui.define([
             }, 500);
         },
 
+        _validateDateRange: function () {
+            let oFechaInicio = null;
+            let oFechaFin = null;
+            let oControlInicio = null;
+            let oControlFin = null;
+           
+            for (const field of this._dynamicFields) {
+                if (field.cust_field === "cust_Data_inici") {
+                    oControlInicio = this._fieldControlsMap[field.externalCode];
+                    if (oControlInicio && oControlInicio.getValue) {
+                        oFechaInicio = oControlInicio.getValue();
+                    }
+                }
+                if (field.cust_field === "cust_Data_caducitat") {
+                    oControlFin = this._fieldControlsMap[field.externalCode];
+                    if (oControlFin && oControlFin.getValue) {
+                        oFechaFin = oControlFin.getValue();
+                    }
+                }
+            }
+
+            
+            if (oFechaInicio && oFechaFin) {
+                const dFechaInicio = new Date(oFechaInicio);
+                const dFechaFin = new Date(oFechaFin);
+
+                if (dFechaFin < dFechaInicio) {
+                    
+                    if (oControlInicio && typeof oControlInicio.setValueState === "function") {
+                        oControlInicio.setValueState(ValueState.Error);
+                        oControlInicio.setValueStateText(this.oResourceBundle.getText("validation.dateIni"));                        
+                    }
+                    if (oControlFin && typeof oControlFin.setValueState === "function") {
+                        oControlFin.setValueState(ValueState.Error);
+                        oControlFin.setValueStateText(this.oResourceBundle.getText("validation.dateEnd"));                       
+                    }
+                    
+                    return false;
+                }
+            }
+
+            return true;
+        },
+
         validateForm: function () {
             let bFormularioValido = true;
             const user = this._oController.oCurrentUser.name;
@@ -1770,6 +1815,10 @@ sap.ui.define([
                         }
                     }
                 }
+            }
+
+            if (bFormularioValido && !this._validateDateRange()) {
+                bFormularioValido = false;
             }
 
             return bFormularioValido;
