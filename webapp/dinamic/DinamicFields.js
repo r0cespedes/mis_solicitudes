@@ -901,6 +901,8 @@ sap.ui.define([
         _addDynamicFields: async function (oForm, aDynamicFields, oSolicitud, bEditMode = false) {
             let iTotalAttachments = 0;
             const user = this._oController.oCurrentUser.name; // Usuario actual
+            const oResourceModel = this._oController.getOwnerComponent().getModel("i18n");
+            const sLang = oResourceModel.getResourceBundle().sLocale;
 
             if (!aDynamicFields || aDynamicFields.length === 0) {
                 Util.showBI(false);
@@ -958,8 +960,17 @@ sap.ui.define([
                             const oModel = this._oController.getOwnerComponent().getModel();
                             const aFilter = [new Filter("optionId", FilterOperator.EQ, sValue)];
                             const data = await Service.readDataERP("/PicklistLabel", oModel, aFilter);
+
+                            const mMap = {
+                                "es_ES": "es_ES",
+                                "en_US": "en_US",
+                                "ca_ES": "ca_ES",
+                                "en_DEBUG": "en_US"
+                            };
+                            const sLocaleBuscado = mMap[sLang];
+
                             if (data?.data?.results?.length) {
-                                sDisplayValue = data.data.results[0].label || sValue;
+                                sDisplayValue = data.data.results.find(label => label.locale === sLocaleBuscado).label;
                             }
                         } catch (error) {
                             console.error("Error cargando picklist label:", error);
@@ -1675,7 +1686,8 @@ sap.ui.define([
             let oFechaFin = null;
             let oControlInicio = null;
             let oControlFin = null;
-           
+
+            // Buscar los controles de fechas
             for (const field of this._dynamicFields) {
                 if (field.cust_field === "cust_Data_inici") {
                     oControlInicio = this._fieldControlsMap[field.externalCode];
@@ -1691,27 +1703,69 @@ sap.ui.define([
                 }
             }
 
-            
+            // Validar fechas
             if (oFechaInicio && oFechaFin) {
                 const dFechaInicio = new Date(oFechaInicio);
                 const dFechaFin = new Date(oFechaFin);
 
                 if (dFechaFin < dFechaInicio) {
-                    
                     if (oControlInicio && typeof oControlInicio.setValueState === "function") {
                         oControlInicio.setValueState(ValueState.Error);
-                        oControlInicio.setValueStateText(this.oResourceBundle.getText("validation.dateIni"));                        
+                        oControlInicio.setValueStateText(this.oResourceBundle.getText("validation.dateIni"));
                     }
                     if (oControlFin && typeof oControlFin.setValueState === "function") {
                         oControlFin.setValueState(ValueState.Error);
-                        oControlFin.setValueStateText(this.oResourceBundle.getText("validation.dateEnd"));                       
+                        oControlFin.setValueStateText(this.oResourceBundle.getText("validation.dateEnd"));
                     }
-                    
                     return false;
                 }
             }
 
             return true;
+        },
+
+        _validateDeclaraciones: function () {
+            let bValidacionCorrecta = true;
+            const aCamposDeclaracion = ["cust_Cesion_datos2", "cust_declaro1", "cust_declaro2"];
+
+            for (const field of this._dynamicFields) {
+             
+                if (aCamposDeclaracion.includes(field.cust_field)) {
+                    const oControl = this._fieldControlsMap[field.externalCode];
+                    const sValorSeleccionado = oControl?.getSelectedKey?.();
+
+                    if (sValorSeleccionado === "1662") {
+                        bValidacionCorrecta = false;
+
+                        if (oControl?.setValueState) {
+                            oControl.setValueState(ValueState.Error);
+
+                            let sTextoError = "";
+                            switch (field.cust_field) {
+                                case "cust_Cesion_datos2":
+                                    sTextoError = this.oResourceBundle.getText("validation.cesionDatos");
+                                    break;
+                                case "cust_declaro1":
+                                    sTextoError = this.oResourceBundle.getText("validation.telework");
+                                    break;
+                                case "cust_declaro2":
+                                    sTextoError = this.oResourceBundle.getText("validation.telework");
+                                    break;
+                            }
+
+                            oControl.setValueStateText(sTextoError);
+                        }
+                    } else {
+                        
+                        if (oControl?.setValueState) {
+                            oControl.setValueState(ValueState.None);
+                            oControl.setValueStateText("");
+                        }
+                    }
+                }
+            }
+
+            return bValidacionCorrecta;
         },
 
         validateForm: function () {
@@ -1820,8 +1874,12 @@ sap.ui.define([
             if (bFormularioValido && !this._validateDateRange()) {
                 bFormularioValido = false;
             }
+            
+            if (bFormularioValido && !this._validateDeclaraciones()) {
+                bFormularioValido = false;
+            }
 
             return bFormularioValido;
         },
     });
-});
+});ce
