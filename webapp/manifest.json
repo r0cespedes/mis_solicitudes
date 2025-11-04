@@ -92,7 +92,7 @@
         "dataSource": "mainService",
         "preload": true,
         "settings": {
-          "useBatch": true
+          "defaultBindingMode": "TwoWay"
         }
       },
       "mLocalModel": {

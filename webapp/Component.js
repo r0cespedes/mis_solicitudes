@@ -1,10 +1,10 @@
 sap.ui.define([
     "sap/ui/core/UIComponent",
-    "sap/ui/model/json/JSONModel", 
-    "sap/ui/thirdparty/jquery",
+    "sap/ui/model/json/JSONModel",
     "com/inetum/missolicitudes/model/models",
-    
-], (UIComponent, JSONModel, $, models) => {
+    "./Utils/Util",
+
+], (UIComponent, JSONModel, models, Util) => {
     "use strict";
 
     return UIComponent.extend("com.inetum.missolicitudes.Component", {
@@ -13,9 +13,6 @@ sap.ui.define([
             interfaces: [
                 "sap.ui.core.IAsyncContentCreation"
             ]
-            // ,config: {
-            //     fullWidth: true
-            // },
         },
 
         init() {
@@ -27,6 +24,20 @@ sap.ui.define([
 
             // enable routing
             this.getRouter().initialize();
+
+            if (String(sessionStorage.getItem("com:missolicitudes:userInfo")) !== "null") {
+                const oModelUser = new JSONModel(JSON.parse(sessionStorage.getItem("com:missolicitudes:userInfo")))
+                this.setModel(oModelUser, "userModel");
+            }
+            if (this.getModel("userModel")) {
+                sessionStorage.removeItem("com:missolicitudes:userInfo")
+            }
+            const oMainModel = this.getModel(); // Obtiene el modelo OData V2 principal
+            if (oMainModel) {
+                oMainModel.attachRequestFailed(Util.onRequestFailed, this);
+            }
+
         }
+       
     });
 });

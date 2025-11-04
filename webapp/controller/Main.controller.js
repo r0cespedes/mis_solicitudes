@@ -24,7 +24,8 @@ sap.ui.define([
         },
 
 
-        loadCurrentUser: function () {
+        loadCurrentUser: async function () {
+            await Util.getModelMainAndValidateSession(this);
             const sUrl = sap.ui.require.toUrl("com/inetum/missolicitudes") + "/user-api/currentUser";
         
             fetch(sUrl)
@@ -71,6 +72,7 @@ sap.ui.define([
         */
 
         onGetDM001: async function () {
+            await Util.getModelMainAndValidateSession(this);
             var oTable = this.byId("idRequestTable");
             oTable.setShowNoData(false);
             Util.showBI(true);

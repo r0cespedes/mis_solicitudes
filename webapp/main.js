@@ -24,6 +24,7 @@ sap.ui.define([
                     throw new Error(`Error del servidor: ${oResponse.status} ${oResponse.statusText}`);
                 }
                 const oUserData = await oResponse.json();
+                sessionStorage.setItem("com:missolicitudes:userInfo", JSON.stringify(oUserData))
                 const oDataModel = new ODataModel({
                     serviceUrl: sap.ui.require.toUrl("com/inetum/missolicitudes") + "/odata/v2"
                 });
@@ -31,9 +32,9 @@ sap.ui.define([
                 const oResult = await new Promise((resolve, reject) => {
                     oDataModel.read("/User", {
                         filters: aFilters,
-                        urlParameters: {
-                            "$select": "defaultLocale"
-                        },
+                        // urlParameters: {
+                        //     "$select": "defaultLocale"
+                        // },
                         success: (oData) => {
                             if (oData.results && oData.results.length > 0) {
                                 resolve(oData.results[0]);
@@ -44,19 +45,50 @@ sap.ui.define([
                         error: (oError) => reject(oError)
                     });
                 });
+
                 const sLang = oResult.defaultLocale;
+
+                if(!sLang){
+                    sLang = navigator.language;
+                    var mMap = {
+                        "es": "es_ES",
+                        "es-es": "es_ES",
+                        "ca": "ca_ES",
+                        "ca-es": "ca_ES",
+                        "en": "en_US",
+                        "en-us": "en_US",
+                        "ca_es": "ca_ES",
+                        "en_us": "en_US"
+                    };
+    
+                    sLang = mMap[sLang] || "en_US";
+                }
+
                 sap.ui.getCore().getConfiguration().setLanguage(sLang);
+
                 break;
             } catch (oError) {
                 if (attempt === maxRetries) {
                     console.error("Todos los intentos para cargar los datos del usuario fallaron.", oError);
                     console.warn("Usando idioma del navegador como fallback.");
                     sLang = navigator.language;
-                    sap.ui.getCore().getConfiguration().setLanguage(sLang);
+                    var mMap = {
+                        "es": "es_ES",
+                        "es-es": "es_ES",
+                        "ca": "ca_ES",
+                        "ca-es": "ca_ES",
+                        "en": "en_US",
+                        "en-us": "en_US",
+                        "ca_es": "ca_ES",
+                        "en_us": "en_US"
+                    };
+                    var sSufijo = mMap[sLang] || "en_US";
+                    sap.ui.getCore().getConfiguration().setLanguage(sSufijo);
+                    throw oError;
                 } else {
                     await new Promise(resolve => setTimeout(resolve, retryDelay));
                 }
-            }           
+            }
         }
 
         new ComponentContainer({
