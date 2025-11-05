@@ -1216,18 +1216,29 @@ sap.ui.define([
             return new Input({
                 id: sFieldId,
                 value: oFieldConfig.cust_value ?? oFieldConfig.realValue ?? "",
-                maxLength: oFieldConfig.length || 15,
+                maxLength: Number(oFieldConfig.length) || 15,
                 width: oFieldConfig.sDefaultWidth,
+                editable: oFieldConfig.editable,
                 liveChange: (oEvent) => {
                     const oInput = oEvent.getSource();
-                    let sValue = oInput.getValue().replace(/[^0-9.]/g, '');
-                    // Lógica para asegurar un solo punto decimal
-                    const aParts = sValue.split('.');
-                    if (aParts.length > 2) {
-                        sValue = aParts[0] + '.' + aParts.slice(1).join('');
+                    let sValue = oInput.getValue();
+                    let sOriginalValue = sValue;
+                    let sFilteredValue = sValue.replace(/[^0-9,]/g, '');  // 1. Limpiar todo excepto números y comas
+
+                    // 2. No debe empezar con coma
+                    if (sFilteredValue.startsWith(',')) {
+                        // Elimina la coma del inicio
+                        sFilteredValue = sFilteredValue.substring(1);
                     }
-                    oInput.setValue(sValue);
-                }
+                    // 3. No debe tener comas seguidas (ej. '1,,2')    
+                    while (sFilteredValue.includes(',,')) {
+                        sFilteredValue = sFilteredValue.replace(/,,/g, ',');
+                    }
+                    // 4. Actualizar el valor en el input solo si ha cambiado
+                    if (sOriginalValue !== sFilteredValue) {
+                        oInput.setValue(sFilteredValue);
+                    }
+                }                
             });
 
         },
