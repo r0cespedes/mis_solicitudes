@@ -25,6 +25,8 @@ sap.ui.define([
             switch (sStatus) {
                 case "EC":
                     return "Warning";
+                case "PF":
+                    return "Warning";    
                 case "CO":
                     return "Success";
                 case "CA":
@@ -40,6 +42,8 @@ sap.ui.define([
             switch (sStatus) {
                 case "EC":
                     return "sap-icon://pending";
+                case "PF":
+                    return "sap-icon://pending"    
                 case "CO":
                     return "sap-icon://complete";
                 case "CA":
@@ -57,6 +61,8 @@ sap.ui.define([
                 switch (status) {
                     case "EC":
                         return this.getI18nText("statusInProgress");
+                    case "PF":
+                        return this.getI18nText("statusInProgress");    
                     case "CO":
                         return this.getI18nText("statusCompleted");
                     case "CA":
@@ -70,7 +76,7 @@ sap.ui.define([
         },
 
         isStatusEnCurso: function (sStatus) {
-            return sStatus === "EC" || sStatus === "RA";
+            return sStatus === "EC" || sStatus === "RA" || sStatus === "PF";
         },
 
         isStatusRequireAction: function (sStatus) {

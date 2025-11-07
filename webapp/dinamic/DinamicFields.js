@@ -265,7 +265,7 @@ sap.ui.define([
             var oCancelRequestButton = new Button({
                 text: this.oResourceBundle.getText("cancelRequest"),
                 type: "Reject",
-                visible: oSolicitud.cust_status === "EC",
+                visible: oSolicitud.cust_status === "EC" || oSolicitud.cust_status === "PF",
                 press: function () {
                     that._onCancelRequest(oSolicitud, oDetailView);
                 }
