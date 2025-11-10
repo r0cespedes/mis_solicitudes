@@ -900,50 +900,47 @@ sap.ui.define([
          * Agregar campos dinámicos (todos los registros del array)
          */
         _addDynamicFields: async function (oForm, aDynamicFields, oSolicitud, bEditMode = false) {
-            let iTotalAttachments = 0;
-            const user = this._oController.oCurrentUser.name; // Usuario actual
+
+            const user = this._oController.oCurrentUser.name;
             const oResourceModel = this._oController.getOwnerComponent().getModel("i18n");
             const sLang = oResourceModel.getResourceBundle().sLocale;
+            const oModel = this._oController.getOwnerComponent().getModel();
 
             if (!aDynamicFields || aDynamicFields.length === 0) {
                 Util.showBI(false);
                 return;
             }
+
             this._oSolicitud = oSolicitud;
 
+            // Separar campos por tipo
             const aAttachmentFields = [];
             const aNormalFields = [];
 
             aDynamicFields.forEach(field => {
                 if (field.cust_fieldtype === "A") {
                     aAttachmentFields.push(field);
-                    iTotalAttachments++;
                 } else {
                     aNormalFields.push(field);
                 }
             });
 
-            for (let index = 0; index < aDynamicFields.length; index++) {
-                const oDynamicField = aDynamicFields[index];
-                const sLabel = Lenguaje.obtenerValorLocalizado(oDynamicField, "cust_etiqueta").replace(/:$/, "");
-                let sValue = oDynamicField.cust_value || "";
-                let sDisplayValue = sValue;
-                let aOpcionesPicklist = [];
-
-
-                // Calculo de los valores base para editable y mandatory
+            const aFieldsDataPromises = aNormalFields.map(async (oDynamicField) => {
+                const bUsuarioEsCreador = (user === oSolicitud.createdBy);
                 let bEsEditable = oDynamicField.cust_modif === true && bEditMode && oSolicitud.cust_status === "RA";
                 let bEsObligatorio = !!oDynamicField.cust_mandatory;
 
-                const bUsuarioEsCreador = (user === oSolicitud.createdBy);
-
-                // Si el usuario es el creador Y el campo está marcado como NO modificable por el empleado
                 if (bUsuarioEsCreador && !oDynamicField.cust_ModificablePEmpleado) {
                     bEsEditable = false;
                     bEsObligatorio = false;
                 }
 
-                // Lógica para cargar opciones de Picklist 
+                const sLabel = Lenguaje.obtenerValorLocalizado(oDynamicField, "cust_etiqueta").replace(/:$/, "");
+                let sValue = oDynamicField.cust_value || "";
+                let sDisplayValue = sValue;
+                let aOpcionesPicklist = [];
+
+                // Cargar picklist si es necesario
                 if (oDynamicField.cust_fieldtype === "P") {
                     if (bEsEditable) {
                         try {
@@ -953,12 +950,11 @@ sap.ui.define([
                             }
                             sDisplayValue = sValue;
                         } catch (error) {
-                            console.error("Error cargando la lista de opciones del picklist:", error);
+                            console.error("Error cargando picklist:", error);
                             aOpcionesPicklist = [];
                         }
                     } else if (sValue !== "" && sValue.trim() !== "") {
                         try {
-                            const oModel = this._oController.getOwnerComponent().getModel();
                             const aFilter = [new Filter("optionId", FilterOperator.EQ, sValue)];
                             const data = await Service.readDataERP("/PicklistLabel", oModel, aFilter);
 
@@ -971,7 +967,7 @@ sap.ui.define([
                             const sLocaleBuscado = mMap[sLang];
 
                             if (data?.data?.results?.length) {
-                                sDisplayValue = data.data.results.find(label => label.locale === sLocaleBuscado).label;
+                                sDisplayValue = data.data.results.find(label => label.locale === sLocaleBuscado)?.label || sValue;
                             }
                         } catch (error) {
                             console.error("Error cargando picklist label:", error);
@@ -984,41 +980,241 @@ sap.ui.define([
                     sDisplayValue = oDynamicField.cust_vDefecto;
                 }
 
-                let oFieldConfig = {
-                    oForm,
-                    sLabel,
-                    sValue: sDisplayValue,
-                    realValue: sValue,
-                    fieldType: oDynamicField.cust_fieldtype,
-                    fieldValue: oDynamicField.cust_value,
-                    editable: bEsEditable,
-                    sStatusEditable: oDynamicField.cust_modif,
-                    mandatory: bEsObligatorio,
-                    externalCode: oDynamicField.externalCode,
-                    picklistOptions: aOpcionesPicklist,
-                    length: oDynamicField.cust_fieldLenght,
-                    sDefaultWidth: `25rem`
-
+                return {
+                    field: oDynamicField,
+                    config: {
+                        oForm,
+                        sLabel,
+                        sValue: sDisplayValue,
+                        realValue: sValue,
+                        fieldType: oDynamicField.cust_fieldtype,
+                        fieldValue: oDynamicField.cust_value,
+                        editable: bEsEditable,
+                        sStatusEditable: oDynamicField.cust_modif,
+                        mandatory: bEsObligatorio,
+                        externalCode: oDynamicField.externalCode,
+                        picklistOptions: aOpcionesPicklist,
+                        length: oDynamicField.cust_fieldLenght,
+                        sDefaultWidth: `25rem`
+                    }
                 };
+            });
 
-                if (oDynamicField.cust_fieldtype !== "A") {
-                    this._addField(oFieldConfig);
-                }
-
-
-            }
+            // Cargar adjuntos en paralelo
+            let aAllAttachments = [];
+            let bAnyAttachmentEditable = false;
 
             if (aAttachmentFields.length > 0) {
-                await this.addGroupedAttachments({
+                const bUsuarioEsCreador = (user === oSolicitud.createdBy);
+                bAnyAttachmentEditable = this._checkIfAnyFieldIsEditable(
+                    aAttachmentFields,
+                    bEditMode,
+                    oSolicitud,
+                    bUsuarioEsCreador
+                );
+
+                // Cargar todos los attachments
+                aAllAttachments = await this._loadAllGroupedAttachments(aAttachmentFields, bAnyAttachmentEditable);
+            }
+
+            // Esperar a que todos los campos normales estén preparados
+            const aFieldsData = await Promise.all(aFieldsDataPromises);
+
+            // Renderizar campos normales
+            aFieldsData.forEach(fieldData => {
+                this._addField(fieldData.config);
+            });
+
+            // Renderizar attachments agrupados si existen
+            if (aAttachmentFields.length > 0) {
+                const oFieldConfig = {
                     oForm: oForm,
                     sLabel: Lenguaje.obtenerValorLocalizado(aAttachmentFields[0], "cust_etiqueta").replace(/:\s*$/, ""),
                     mandatory: aAttachmentFields.some(f => f.cust_mandatory === true)
-                }, aAttachmentFields, oSolicitud, bEditMode);
+                };
 
-                Util.showBI(false);
+                // Crear el componente de attachments con los datos ya cargados
+                await this._createGroupedAttachmentsComponent(
+                    oFieldConfig,
+                    aAttachmentFields,
+                    oSolicitud,
+                    bEditMode,
+                    aAllAttachments,
+                    bAnyAttachmentEditable
+                );
             }
 
-            if (iTotalAttachments === 0) Util.showBI(false);
+            // Ocultar indicador de carga
+            Util.showBI(false);
+        },
+
+        _createGroupedAttachmentsComponent: async function (
+            oFieldConfig,
+            aAttachmentFields,
+            oSolicitud,
+            bEditMode,
+            aPreloadedAttachments,
+            bAnyEditable
+        ) {
+            const that = this;
+
+            // Crear modelo con los attachments ya cargados
+            const oAttachmentsModel = new JSONModel({
+                items: aPreloadedAttachments,
+                pendingFiles: [],
+                deletedAttachments: [],
+                uploadEnabled: bAnyEditable
+            });
+
+            // Crear tabla
+            const sTableId = "grouped_attachments_table_" + Date.now();
+            const oTable = new Table({
+                id: sTableId,
+                mode: bAnyEditable ? "Delete" : "None",
+                growing: false,
+                columns: [
+                    new Column({
+                        width: "3rem",
+                        hAlign: "Center",
+                        header: new Text({ text: "" })
+                    }),
+                    new Column({
+                        header: new Text({ text: this.oResourceBundle.getText("fileName") || "Nombre del archivo" }),
+                        width: "50%"
+                    }),
+                    new Column({
+                        header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
+                        width: "30%",
+                        hAlign: "Right"
+                    })
+                ],
+                delete: function (oEvent) {
+                    that._onDeleteGroupedAttachment(oEvent, oTable, oAttachmentsModel);
+                }
+            });
+
+            // Vincular items al modelo
+            oTable.bindItems({
+                path: "attachments>/items",
+                template: new ColumnListItem({
+                    cells: [
+                        new Icon({
+                            src: {
+                                path: "attachments>mediaType",
+                                formatter: formatter._getFileIcon
+                            },
+                            size: "2rem",
+                            color: "Default"
+                        }),
+                        new Link({
+                            text: "{attachments>fileName}",
+                            href: "#",
+                            enabled: true,
+                            press: function (oEvent) {
+                                oEvent.preventDefault();
+                                const oSource = oEvent.getSource();
+                                const oContext = oSource.getBindingContext("attachments");
+                                const oFileData = oContext.getObject();
+
+                                const a = document.createElement('a');
+                                a.href = oFileData.url;
+                                a.download = oFileData.fileName;
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                            }
+                        }),
+                        new Text({
+                            text: {
+                                path: "attachments>fileSize",
+                                formatter: formatter._formatFileSize
+                            }
+                        })
+                    ]
+                })
+            });
+
+            oTable.setModel(oAttachmentsModel, "attachments");
+
+            // FileUploader
+            const sFileUploaderId = "grouped_file_uploader_" + Date.now();
+            const oFileUploader = new FileUploader({
+                id: sFileUploaderId,
+                multiple: true,
+                fileType: ["jpeg", "jpg", "png", "pdf"],
+                mimeType: ["application/pdf", "image/jpeg", "image/jpg", "image/png"],
+                maximumFileSize: 10,
+                visible: true,
+                width: "0px",
+                change: function (oEvent) {
+                    that._onGroupedFilesSelected(oEvent, oFileUploader, oTable, oAttachmentsModel);
+                }
+            }).addStyleClass("sapUiHidden");
+
+            // Botón de carga
+            const oUploadButton = new Button({
+                text: this.oResourceBundle.getText("addAttachments") || "Agregar archivos",
+                icon: "sap-icon://attachment",
+                type: "Emphasized",
+                visible: bAnyEditable,
+                press: function () {
+                    oFileUploader.$().find("input[type=file]").trigger("click");
+                }
+            });
+
+            const oContent = new FlexBox({
+                direction: "Column",
+                items: [
+                    oUploadButton,
+                    oFileUploader,
+                    oTable
+                ]
+            });
+
+            // Panel con contador actualizado
+            const oPanel = new Panel({
+                width: "80%",
+                headerText: `${this.oResourceBundle.getText("attachments")} (${aPreloadedAttachments.length})`,
+                expandable: true,
+                expanded: false,
+                content: [oContent]
+            });
+
+            this._oPanel = oPanel;
+
+            // Actualizar contador cuando cambien los items
+            oAttachmentsModel.attachPropertyChange(function (oEvent) {
+                if (oEvent.getParameter("path") === "/items") {
+                    const iCount = oAttachmentsModel.getProperty("/items").length;
+                    oPanel.setHeaderText(`${that.oResourceBundle.getText("attachments")} (${iCount})`);
+                }
+            });
+
+            // Agregar al formulario
+            const oLabel = new Label({
+                text: oFieldConfig.sLabel,
+                required: !!oFieldConfig.mandatory,
+                labelFor: oTable.getId()
+            });
+
+            oFieldConfig.oForm.addContent(oLabel);
+            oFieldConfig.oForm.addContent(oPanel);
+
+            // Guardar referencias
+            this._groupedAttachmentsData = {
+                table: oTable,
+                model: oAttachmentsModel,
+                fileUploader: oFileUploader,
+                attachmentFields: aAttachmentFields,
+                panel: oPanel
+            };
+
+            // Mapear campos al control
+            aAttachmentFields.forEach(function (oAttField) {
+                that._fieldControlsMap[oAttField.externalCode] = oTable;
+            });
+
+            return oTable;
         },
 
         /**
@@ -1127,14 +1323,31 @@ sap.ui.define([
         },
 
         _createInputField: function (sFieldId, sDisplayValue, oFieldConfig) {
-            return new Input({
+            const iLength = parseInt(oFieldConfig.length, 10) || 0;
+            const bEditable = oFieldConfig.editable !== false;
+
+            if (iLength > 0 && iLength <= 200) {
+                // Input para textos cortos
+                return new sap.m.Input({
+                    id: sFieldId,
+                    maxLength: iLength,
+                    type: sap.m.InputType.Text,
+                    width: `${Math.min(iLength, 40) * 0.9}rem`,
+                    value: sDisplayValue,
+                    editable: bEditable
+                });
+            }
+
+            // TextArea para textos largos
+            return new sap.m.TextArea({
                 id: sFieldId,
                 value: sDisplayValue,
-                editable: oFieldConfig.editable,
-                enabled: true,
-                maxLength: Number(oFieldConfig.length) || 100,
-                width: oFieldConfig.length ? `${oFieldConfig.length}rem` : undefined
+                rows: 2,
+                maxLength: iLength || 0,
+                editable: bEditable,
+                width: oFieldConfig.sDefaultWidth
             });
+
         },
 
         _createDateField: function (sFieldId, sDisplayValue, oFieldConfig) {
@@ -1238,7 +1451,7 @@ sap.ui.define([
                     if (sOriginalValue !== sFilteredValue) {
                         oInput.setValue(sFilteredValue);
                     }
-                }                
+                }
             });
 
         },
@@ -1255,195 +1468,6 @@ sap.ui.define([
             });
         },
 
-        addGroupedAttachments: async function (oFieldConfig, aAttachmentFields, oSolicitud, bEditMode) {
-            const that = this;
-            const user = this._oController.oCurrentUser.name;
-            const bUsuarioEsCreador = (user === oSolicitud.createdBy);
-
-            // Verificar si algún campo es editable
-            let bAnyEditable = this._checkIfAnyFieldIsEditable(aAttachmentFields, bEditMode, oSolicitud, bUsuarioEsCreador);
-
-            // Crear modelo para los adjuntos
-            const oAttachmentsModel = new JSONModel({
-                items: [],
-                pendingFiles: [],
-                deletedAttachments: [],
-                uploadEnabled: bAnyEditable
-            });
-
-            // Crear tabla de adjuntos
-            const sTableId = "grouped_attachments_table_" + Date.now();
-            const oTable = new Table({
-                id: sTableId,
-                mode: bAnyEditable ? "Delete" : "None",
-                growing: false,
-                columns: [
-                    new Column({
-                        width: "3rem",
-                        hAlign: "Center",
-                        header: new Text({ text: "" })
-                    }),
-                    new Column({
-                        header: new Text({ text: this.oResourceBundle.getText("fileName") || "Nombre del archivo" }),
-                        width: "50%"
-                    }),
-                    // ,
-                    // new Column({
-                    //     header: new Text({ text: this.oResourceBundle.getText("fileType") || "Tipo" }),
-                    //     width: "30%",
-                    //     hAlign: "Center"
-                    // })                    
-                    new Column({
-                        header: new Text({ text: this.oResourceBundle.getText("fileSize") || "Tamaño" }),
-                        width: "30%",
-                        hAlign: "Right"
-                    })
-                ],
-                delete: function (oEvent) {
-                    that._onDeleteGroupedAttachment(oEvent, oTable, oAttachmentsModel);
-                }
-            });
-
-            // Vincular items al modelo
-            oTable.bindItems({
-                path: "attachments>/items",
-                template: new ColumnListItem({
-                    cells: [
-                        new Icon({
-                            src: {
-                                path: "attachments>mediaType",
-                                formatter: formatter._getFileIcon
-                            },
-                            size: "2rem",
-                            color: "Default"
-                        }),
-                        new Link({
-                            text: "{attachments>fileName}",
-                            href: "#",
-                            enabled: true,
-                            press: function (oEvent) {
-                                oEvent.preventDefault(); // Prevenir navegación
-
-                                // Obtener datos del contexto
-                                const oSource = oEvent.getSource();
-                                const oContext = oSource.getBindingContext("attachments");
-                                const oFileData = oContext.getObject();
-
-                                // Crear elemento  temporal para descarga
-                                const sDataURI = oFileData.url;
-                                const sFileName = oFileData.fileName;
-
-                                const a = document.createElement('a');
-                                a.href = sDataURI;
-                                a.download = sFileName;
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                            }
-                        }),
-                        // new Text({
-                        //     text: {
-                        //         path: "attachments>mediaType",
-                        //         formatter: formatter._formatFileType
-                        //     }
-                        // })
-                        // ,
-                        new Text({
-                            text: {
-                                path: "attachments>fileSize",
-                                formatter: formatter._formatFileSize
-                            }
-                        })
-                    ]
-                })
-            });
-
-            oTable.setModel(oAttachmentsModel, "attachments");
-
-            const sFileUploaderId = "grouped_file_uploader_" + Date.now();
-            const oFileUploader = new FileUploader({
-                id: sFileUploaderId,
-                multiple: true,
-                fileType: ["jpeg", "jpg", "png", "pdf"],
-                mimeType: ["application/pdf", "image/jpeg", "image/jpg", "image/png"],
-                maximumFileSize: 10,
-                visible: true,
-                width: "0px",
-                change: function (oEvent) {
-                    that._onGroupedFilesSelected(oEvent, oFileUploader, oTable, oAttachmentsModel);
-                }
-            }).addStyleClass("sapUiHidden");
-
-            // Crear botón para agregar archivos
-            const oUploadButton = new Button({
-                text: this.oResourceBundle.getText("addAttachments") || "Agregar archivos",
-                icon: "sap-icon://attachment",
-                type: "Emphasized",
-                visible: bAnyEditable,
-                press: function () {
-                    // Simular click en FileUploader
-                    oFileUploader.$().find("input[type=file]").trigger("click");
-                }
-            });
-
-            const oContent = new FlexBox({
-                direction: "Column",
-                items: [
-                    oUploadButton,
-                    oFileUploader,
-                    oTable
-                ]
-            });
-
-            // Cargar adjuntos existentes
-            const aAllAttachments = await this._loadAllGroupedAttachments(aAttachmentFields, bAnyEditable);
-            oAttachmentsModel.setProperty("/items", aAllAttachments);
-
-            // Crear panel expandible
-            const oPanel = new Panel({
-                width: "80%",
-                headerText: `${this.oResourceBundle.getText("attachments")} (${aAllAttachments.length})`,
-                expandable: true,
-                expanded: false,
-                content: [oContent]
-            });
-
-            this._oPanel = oPanel;
-
-            // Actualizar contador cuando cambien los items
-            oAttachmentsModel.attachPropertyChange(function (oEvent) {
-                if (oEvent.getParameter("path") === "/items") {
-                    const iCount = oAttachmentsModel.getProperty("/items").length;
-                    oPanel.setHeaderText(`${that.oResourceBundle.getText("attachments")} (${iCount})`);
-
-                }
-            });
-
-            // Agregar al formulario
-            const oLabel = new Label({
-                text: oFieldConfig.sLabel,
-                required: !!oFieldConfig.mandatory,
-                labelFor: oTable.getId()
-            });
-
-            oFieldConfig.oForm.addContent(oLabel);
-            oFieldConfig.oForm.addContent(oPanel);
-
-            this._groupedAttachmentsData = {
-                table: oTable,
-                model: oAttachmentsModel,
-                fileUploader: oFileUploader,
-                attachmentFields: aAttachmentFields,
-                panel: oPanel
-            };
-
-            // Mapear cada campo individual al control agrupado
-            aAttachmentFields.forEach(function (oAttField) {
-                that._fieldControlsMap[oAttField.externalCode] = oTable;
-            });
-
-            return oTable;
-        },
 
         _checkIfAnyFieldIsEditable: function (aAttachmentFields, bEditMode, oSolicitud, bUsuarioEsCreador) {
             return aAttachmentFields.some(oField => {
@@ -1741,7 +1765,7 @@ sap.ui.define([
             const aCamposDeclaracion = ["cust_Cesion_datos2", "cust_declaro1", "cust_declaro2"];
 
             for (const field of this._dynamicFields) {
-             
+
                 if (aCamposDeclaracion.includes(field.cust_field)) {
                     const oControl = this._fieldControlsMap[field.externalCode];
                     const sValorSeleccionado = oControl?.getSelectedKey?.();
@@ -1768,7 +1792,7 @@ sap.ui.define([
                             oControl.setValueStateText(sTextoError);
                         }
                     } else {
-                        
+
                         if (oControl?.setValueState) {
                             oControl.setValueState(ValueState.None);
                             oControl.setValueStateText("");
@@ -1886,7 +1910,7 @@ sap.ui.define([
             if (bFormularioValido && !this._validateDateRange()) {
                 bFormularioValido = false;
             }
-            
+
             if (bFormularioValido && !this._validateDeclaraciones()) {
                 bFormularioValido = false;
             }
