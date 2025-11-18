@@ -1270,6 +1270,9 @@ sap.ui.define([
                 case "N":
                     oField = this._createInputNumber(sFieldId, sDisplayValue, oFieldConfig);
                     break;
+                case "T":
+                    oField = this._createTimePicker(sFieldId, sDisplayValue, oFieldConfig);
+                    break;
                 default:
                     oField = this._createInputField(sFieldId, sDisplayValue, oFieldConfig);
             }
@@ -1357,7 +1360,7 @@ sap.ui.define([
                 editable: oFieldConfig.editable,
                 displayFormat: "dd/MM/yyyy",
                 valueFormat: "yyyy-MM-dd",
-                width: oFieldConfig.length ? `${oFieldConfig.length}rem` : `10rem`,
+                width: "14rem",
 
             });
         },
@@ -1468,6 +1471,17 @@ sap.ui.define([
             });
         },
 
+        _createTimePicker: function (sFieldId, sDisplayValue, oFieldConfig) {
+            return new sap.m.TimePicker({
+                id: sFieldId,
+                valueFormat: "HH:mm:ss",
+                displayFormat: "hh:mm a",
+                width: "14rem",
+                value: sDisplayValue,
+                editable: oFieldConfig.editable
+            });
+
+        },
 
         _checkIfAnyFieldIsEditable: function (aAttachmentFields, bEditMode, oSolicitud, bUsuarioEsCreador) {
             return aAttachmentFields.some(oField => {

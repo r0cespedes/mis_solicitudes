@@ -83,7 +83,7 @@ sap.ui.define([
 			}
 
 			if (sStatusCode === 401 || sStatusCode === 403) {
-				const refreshed = await utils.refreshXsuaaToken();
+				const refreshed = await this.refreshXsuaaToken();
 				if (refreshed) {
 					MessageToast.show(oResourceBundle.getText("sessionRenewed"));
 					return; // ya se refrescó el token, no hace falta recargar
