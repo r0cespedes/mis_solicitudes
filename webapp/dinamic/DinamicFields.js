@@ -161,19 +161,22 @@ sap.ui.define([
 
                 var vOriginalValue = oControl.data("realValue");
                 var vCurrentValue = null;
+                var vCurrentText = null;
 
                 // obtener el valor actual
                 if (oControl instanceof Select) {
                     vCurrentValue = oControl.getSelectedKey();
+
+                    // Si es tipo P, también obtener el texto
+                    if (field.cust_fieldtype === 'P') {
+                        var oSelectedItem = oControl.getSelectedItem();
+                        vCurrentText = oSelectedItem ? oSelectedItem.getText() : "";
+                    }
                 } else if (field.cust_fieldtype === 'P') {
-
                     vCurrentValue = vOriginalValue;
-                }
-
-                else if (oControl instanceof DatePicker) {
-                    // Para DatePicker
+                } else if (oControl instanceof DatePicker) {
                     vCurrentValue = oControl.getDateValue() ? oDateFormatter.format(oControl.getDateValue()) : "";
-                } else if (oControl.getValue) { // Para demás campos
+                } else if (oControl.getValue) {
                     vCurrentValue = oControl.getValue();
                 } else {
                     return;
@@ -182,7 +185,8 @@ sap.ui.define([
                 if ((vOriginalValue || "") !== (vCurrentValue || "")) {
                     aChangedFields.push({
                         fieldData: field,
-                        newValue: vCurrentValue
+                        newValue: vCurrentValue,
+                        newText: vCurrentText
                     });
                 }
             }.bind(this));
@@ -377,7 +381,18 @@ sap.ui.define([
                     oSolicitud.effectiveStartDate,
                     change.fieldData.externalCode
                 );
-                oModel.update(sFieldPath, { cust_value: change.newValue || "" });
+                var oUpdateData = {};
+
+                if (change.fieldData.cust_fieldtype === 'P' && change.newText) {
+                    // Para campos tipo Picklist: key en cust_label_value, text en cust_value
+                    oUpdateData.cust_label_value = change.newText || "";
+                    oUpdateData.cust_value = change.newValue || "";
+                } else {
+                    // Para otros tipos de campo: valor en cust_value
+                    oUpdateData.cust_value = change.newValue || "";
+                }
+
+                oModel.update(sFieldPath, oUpdateData);
             });
 
             // Procesar attachments si hay cambios
@@ -936,7 +951,7 @@ sap.ui.define([
                 }
 
                 const sLabel = Lenguaje.obtenerValorLocalizado(oDynamicField, "cust_etiqueta").replace(/:$/, "");
-                let sValue = oDynamicField.cust_value || "";
+                let sValue = oDynamicField.cust_fieldtype === "P" ? (oDynamicField.cust_label_value || "") : (oDynamicField.cust_value || "");
                 let sDisplayValue = sValue;
                 let aOpcionesPicklist = [];
 
@@ -1776,7 +1791,7 @@ sap.ui.define([
 
         _validateDeclaraciones: function () {
             let bValidacionCorrecta = true;
-            const aCamposDeclaracion = ["cust_Cesion_datos2", "cust_declaro1", "cust_declaro2"];
+            const aCamposDeclaracion = ["cust_Cesion_datos2", "cust_declaro1", "cust_declaro2", "cust_Declaro"];
 
             for (const field of this._dynamicFields) {
 
@@ -1800,6 +1815,9 @@ sap.ui.define([
                                     break;
                                 case "cust_declaro2":
                                     sTextoError = this.oResourceBundle.getText("validation.telework");
+                                    break;
+                                case "cust_Declaro":
+                                    sTextoError = this.oResourceBundle.getText("validation.responsability");
                                     break;
                             }
 
